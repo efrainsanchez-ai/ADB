@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Autonomous Database 23ai and 26ai New Features - Oracle Autonomous Database New Features and AI Adoption Guide</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="../assets/blog.css">
+</head>
+<body>
+<div class="page">
+  <div class="site-header">
+    <div class="eyebrow">Oracle Autonomous Database New Features and AI Adoption Guide</div>
+    <h1>Autonomous Database 23ai and 26ai New Features</h1>
+    <p class="summary">
+      Oracle Database 23ai introduced the main AI and developer foundations. Oracle Autonomous AI Database 26ai consolidates and extends that direction in the managed Autonomous Database service. This section gives a short product-context view before the performance topics.
+    </p>
+  </div>
+
+  <div class="nav-row" aria-label="Section navigation">
+    <a href="../index.html">Guide index</a>
+    <a href="02-capacity-planning-using-current-usage.html">Next: Capacity Planning</a>
+  </div>
+
+  <div>
+    <h2>Short Explanation</h2>
+    <p>
+      Oracle Database 23ai brought AI Vector Search, JSON Relational Duality, Operational Property Graphs, SQL Firewall, True Cache, RAFT replication, and many developer-focused SQL and application features into the long-term database platform. Oracle announced 23ai availability for cloud database services and Always Free Autonomous Database in May 2024.
+    </p>
+    <p>
+      As of June 2, 2026, Oracle documentation describes Oracle AI Database 26ai as the next long-term support release, with more than 300 new features focused on AI and developer productivity. OCI release notes state that Autonomous AI Database 26ai replaces Autonomous Database 23ai naming in the OCI Console and documentation, while some APIs can still use or return <code>23ai</code> for <code>dbVersion</code>.
+      Treat version selection as a deployment decision: verify the database version, workload type, region, service tier, and API behavior before automating provisioning or cloning.
+    </p>
+
+    <div class="infographic" role="img" aria-label="Autonomous Database 23ai and 26ai feature map showing AI, development, lakehouse, security, and operations areas">
+      <div class="infographic-title">23ai to 26ai Feature Map</div>
+      <div class="info-flow">
+        <div class="info-node metric">
+          <strong>23ai AI</strong>
+          <span>AI Vector Search, native vector data, vector indexes, and RAG patterns.</span>
+        </div>
+        <div class="info-node">
+          <strong>23ai Apps</strong>
+          <span>JSON Relational Duality, SQL Property Graphs, SQL enhancements, and JavaScript.</span>
+        </div>
+        <div class="info-node">
+          <strong>26ai Data</strong>
+          <span>Autonomous AI Lakehouse, Iceberg integration, External Table Cache, and Data Transforms.</span>
+        </div>
+        <div class="info-node decision">
+          <strong>Protect</strong>
+          <span>MFA, SQL Firewall, secret-based authentication, and granular policies.</span>
+        </div>
+        <div class="info-node metric">
+          <strong>Operate</strong>
+          <span>Monitoring metrics, online restart, migration automation, and Data Guard updates.</span>
+        </div>
+      </div>
+    </div>
+    <p class="infographic-legend">
+      Color guide: blue-accent cards highlight AI, monitoring, or telemetry-oriented capabilities, gray-accent cards highlight security or governance decisions, and plain cards show normal development and data platform areas.
+    </p>
+
+    <p>
+      For this performance guide, the practical point is simple: 23ai established important AI, JSON, graph, application development, and mission-critical foundations. 26ai continues those themes in Autonomous AI Database with current service naming, lakehouse integration, security updates, monitoring, migration, and operational enhancements. The tuning workflow still starts with measured workload behavior, but teams should review whether these features change the data access pattern, security model, integration path, or operational baseline.
+    </p>
+
+    <h2>Feature Summary and Adoption View</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th>What customers can adopt</th>
+          <th>Adoption guidance</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Version and service fit</td>
+          <td>Use 23ai as the foundation for many AI and developer features, and use 26ai naming and documentation for current Autonomous AI Database planning.</td>
+          <td>Before a pilot, confirm workload type, region, tier, database version, and API behavior. For automation, test <code>dbVersion</code> handling instead of assuming console labels and API values are identical.</td>
+        </tr>
+        <tr>
+          <td>AI Vector Search and RAG</td>
+          <td>Adopt semantic search, similarity search, and retrieval augmented generation using native vector data, vector indexes, and SQL access patterns.</td>
+          <td>Start with one curated corpus. Measure recall quality, latency, vector index behavior, memory use, storage growth, and cost before expanding to more data domains.</td>
+        </tr>
+        <tr>
+          <td>JSON and graph applications</td>
+          <td>Use JSON Relational Duality for applications that need both document-style APIs and relational consistency. Use SQL Property Graphs and Select AI for graph analysis and natural language graph exploration.</td>
+          <td>Choose a bounded application flow first. Validate generated SQL or graph queries, explain plans, result correctness, and access controls before enabling broader self-service use.</td>
+        </tr>
+        <tr>
+          <td>Lakehouse and external data</td>
+          <td>Use Autonomous AI Lakehouse patterns for analytics that combine database data with external data, Iceberg integration, Data Lake Accelerator, and External Table Cache.</td>
+          <td>Benchmark object storage layout, external-table statistics, cache policy, scan volume, and concurrency. Compare database-local, cached, and external access paths before committing to a design.</td>
+        </tr>
+        <tr>
+          <td>Developer productivity</td>
+          <td>Adopt SQL and PL/SQL enhancements, JavaScript stored procedures, Kafka APIs for TxEventQ, lock-free reservations, priority transactions, schema privileges, and developer-focused roles where they simplify application design.</td>
+          <td>Modernize one workflow at a time. Validate concurrency behavior, rollback patterns, schema privileges, observability, and operational ownership before moving shared services.</td>
+        </tr>
+        <tr>
+          <td>Security and access control</td>
+          <td>Use SQL Firewall, Multifactor Authentication, secret-based password authentication, granular policy permissions, and outbound private endpoint controls to strengthen database and integration access.</td>
+          <td>Bring security teams into the pilot early. Test authentication, least-privilege grants, outbound network policy, generated SQL controls, and audit evidence before production rollout.</td>
+        </tr>
+        <tr>
+          <td>Operations and migration</td>
+          <td>Use Autonomous AI Database metrics, workload capture and replay, online restart, migration automation, <code>DBMS_CLOUD_IMPORT</code>, and Autonomous Data Guard options to reduce rollout risk.</td>
+          <td>Define success criteria for performance, availability, recovery, and cost. Rehearse migration and rollback steps before expanding adoption to critical workloads.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Practical Takeaways</h2>
+    <ul>
+      <li>Start adoption with a small set of high-value use cases, such as semantic search, RAG over private data, JSON application modernization, graph analysis, or lakehouse query acceleration.</li>
+      <li>Map each use case to the required database version, Autonomous Database workload type, region, service tier, and security controls before building a pilot.</li>
+      <li>Use 23ai capabilities as the adoption foundation for AI Vector Search, JSON Relational Duality, SQL Property Graphs, SQL Firewall, and mission-critical application patterns.</li>
+      <li>Use 26ai capabilities to extend those pilots into current Autonomous AI Database patterns such as Autonomous AI Lakehouse, External Table Cache, Select AI graph prompts, managed security updates, and improved operations.</li>
+      <li>Run pilots with production-like data volumes and access patterns. Measure query latency, plan stability, vector index behavior, External Table Cache effectiveness, storage growth, and cost impact.</li>
+      <li>Govern AI-generated SQL, graph queries, and vector searches with the same review process used for production SQL: approved schemas, explainable queries, tested plans, and monitored resource use.</li>
+      <li>Plan rollout in phases: prove value with one workload, define operational guardrails, automate deployment checks, then expand to more teams or applications.</li>
+    </ul>
+  </div>
+
+  <div class="pager" aria-label="Previous and next">
+    <a href="../index.html">Back to guide index</a>
+    <a href="02-capacity-planning-using-current-usage.html">Next: Capacity Planning</a>
+  </div>
+</div>
+<script src="../assets/copy-code.js"></script>
+</body>
+</html>
