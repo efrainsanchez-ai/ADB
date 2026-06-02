@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Automatic Performance Tuning - Oracle Autonomous Database Performance Optimization Guide</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="../assets/blog.css">
+</head>
+<body>
+<div class="page">
+  <div class="site-header">
+    <div class="eyebrow">Oracle Autonomous Database Performance Optimization Guide</div>
+    <h1>Automatic Performance Tuning</h1>
+    <p class="summary">
+      Automatic performance tuning combines optimizer statistics, SQL Plan Management, resource management, and monitoring. The goal is not to remove all tuning work. The goal is to keep routine optimization current and give teams reliable evidence when a workload changes.
+    </p>
+  </div>
+
+  <div class="nav-row" aria-label="Section navigation">
+    <a href="../index.html">Guide index</a>
+    <a href="01-autonomous-database-26ai-new-features.html">Previous: 23ai and 26ai New Features</a>
+    <a href="03-automatic-indexing.html">Next: Automatic Indexing</a>
+  </div>
+
+  <div>
+    <h2>What it is</h2>
+    <p>
+      Automatic performance tuning in Autonomous Database is a set of managed capabilities rather than one feature switch. The database collects optimizer statistics, supports SQL Plan Management to reduce plan regression risk, applies service-based resource management, and exposes workload diagnostics through Database Actions, Performance Hub, SQL Monitor, AWR, and ASH where available.
+    </p>
+
+    <div class="infographic" role="img" aria-label="Automatic performance tuning flow from workload monitoring to validated SQL results">
+      <div class="infographic-title">Performance Tuning Loop</div>
+      <div class="info-flow">
+        <div class="info-node metric">
+          <strong>Observe</strong>
+          <span>Top SQL, waits, AAS, CPU, I/O, and service usage.</span>
+        </div>
+        <div class="info-node metric">
+          <strong>Maintain</strong>
+          <span>Optimizer statistics, histograms, and stale object checks.</span>
+        </div>
+        <div class="info-node">
+          <strong>Stabilize</strong>
+          <span>SQL Plan Management and accepted execution plans.</span>
+        </div>
+        <div class="info-node">
+          <strong>Prioritize</strong>
+          <span>Connection services and resource consumer groups.</span>
+        </div>
+        <div class="info-node decision">
+          <strong>Validate</strong>
+          <span>Actual plans, row counts, and measurable SQL results.</span>
+        </div>
+      </div>
+    </div>
+    <p class="infographic-legend">
+      Color guide: blue-accent cards highlight performance metrics or telemetry, gray-accent cards highlight validation points, and plain cards show normal tuning process steps.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th>What to review</th>
+          <th>Why it matters</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Optimizer statistics</td>
+          <td>Object statistics, stale statistics, histograms, and row-count estimates.</td>
+          <td>Bad cardinality estimates are a common cause of poor join order, access path, and parallelism choices.</td>
+        </tr>
+        <tr>
+          <td>SQL Plan Management</td>
+          <td>Automatic plan evolution mode and accepted SQL plan baselines.</td>
+          <td>Stable plan selection helps reduce regressions after workload, data, or version changes.</td>
+        </tr>
+        <tr>
+          <td>Resource management</td>
+          <td>Service name, consumer group, queued statements, and active sessions.</td>
+          <td>Different workloads need different concurrency and priority behavior.</td>
+        </tr>
+        <tr>
+          <td>Monitoring</td>
+          <td>Top SQL, waits, average active sessions, CPU, I/O, and SQL execution plans.</td>
+          <td>Performance work should start from measured bottlenecks, not assumptions.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Why it matters</h2>
+    <p>
+      Most tuning investigations start with the same questions: did the optimizer estimate correctly, did the SQL plan change, is the system CPU-bound or wait-bound, and is the application connected to the right service? Autonomous Database automates routine maintenance, but teams still need practical checks to confirm the current state and decide whether to tune SQL, gather statistics, adjust connection services, or scale resources.
+    </p>
+
+    <h2>Check if enabled</h2>
+    <p>
+      Start with optimizer statistics and SQL Plan Management. These queries are intentionally read-only. Use <code>DBA_</code> views when you have the privileges; otherwise use matching <code>USER_</code> views where possible.
+    </p>
+
+    <pre><code class="language-sql">-- Check automatic optimizer statistics collection.
+SELECT client_name, status
+FROM   dba_autotask_client
+WHERE  client_name = 'auto optimizer stats collection';</code></pre>
+
+    <pre><code class="language-sql">-- Find stale or missing table statistics in the current schema.
+SELECT table_name,
+       num_rows,
+       blocks,
+       last_analyzed,
+       stale_stats
+FROM   user_tab_statistics
+WHERE  object_type = 'TABLE'
+AND    (last_analyzed IS NULL OR stale_stats = 'YES')
+ORDER  BY last_analyzed NULLS FIRST;</code></pre>
+
+    <pre><code class="language-sql">-- Check real-time SQL Plan Management mode.
+SELECT parameter_name, parameter_value
+FROM   dba_sql_management_config
+WHERE  parameter_name = 'AUTO_SPM_EVOLVE_TASK';</code></pre>
+
+    <p>
+      For SQL plan review, inspect the baseline attributes before approving, fixing, disabling, or dropping any plan. The key columns are <code>ACCEPTED</code>, <code>ENABLED</code>, <code>FIXED</code>, <code>REPRODUCED</code>, and <code>AUTOPURGE</code>.
+    </p>
+
+    <pre><code class="language-sql">-- Review recent SQL plan baselines and their approval status.
+SELECT sql_handle,
+       plan_name,
+       enabled,
+       accepted,
+       fixed,
+       reproduced,
+       autopurge,
+       origin,
+       last_verified,
+       last_executed
+FROM   dba_sql_plan_baselines
+ORDER  BY last_modified DESC
+FETCH FIRST 30 ROWS ONLY;</code></pre>
+
+    <pre><code class="language-sql">-- Display one baseline plan before approving or disabling it.
+SELECT *
+FROM   TABLE(DBMS_XPLAN.DISPLAY_SQL_PLAN_BASELINE(
+         sql_handle =&gt; '&lt;sql_handle&gt;',
+         plan_name  =&gt; '&lt;plan_name&gt;',
+         format     =&gt; 'TYPICAL'
+       ));</code></pre>
+
+    <p>
+      Then check current workload pressure. High average active sessions with high CPU points to CPU saturation. High active sessions with a dominant wait class points to a wait bottleneck.
+    </p>
+
+    <pre><code class="language-sql">-- Current system-level workload indicators.
+SELECT metric_name, value, metric_unit
+FROM   v$sysmetric
+WHERE  metric_name IN (
+  'Host CPU Utilization (%)',
+  'Average Active Sessions',
+  'Executions Per Sec',
+  'User Calls Per Sec'
+)
+ORDER BY metric_name;</code></pre>
+
+    <pre><code class="language-sql">-- Current sessions by service and consumer group.
+SELECT service_name,
+       resource_consumer_group,
+       COUNT(*) AS sessions
+FROM   v$session
+WHERE  username IS NOT NULL
+GROUP  BY service_name, resource_consumer_group
+ORDER  BY sessions DESC;</code></pre>
+
+    <h2>How to enable</h2>
+    <p>
+      Automatic statistics gathering is enabled for Autonomous Database. For tables that have just received large conventional DML changes, gather stale statistics explicitly. For SQL Plan Management, choose the automatic SPM mode that matches the review model for the workload.
+    </p>
+
+    <pre><code class="language-sql">-- Gather stale statistics for the current schema.
+BEGIN
+  DBMS_STATS.GATHER_SCHEMA_STATS(
+    ownname          =&gt; USER,
+    estimate_percent =&gt; DBMS_STATS.AUTO_SAMPLE_SIZE,
+    method_opt       =&gt; 'FOR ALL COLUMNS SIZE AUTO',
+    cascade          =&gt; TRUE,
+    options          =&gt; 'GATHER STALE'
+  );
+END;
+/</code></pre>
+
+    <pre><code class="language-sql">-- Enable real-time automatic SPM.
+EXEC DBMS_SPM.CONFIGURE('AUTO_SPM_EVOLVE_TASK', 'AUTO');</code></pre>
+
+    <pre><code class="language-sql">-- Alternative: enable background-verified automatic SPM.
+EXEC DBMS_SPM.CONFIGURE('AUTO_SPM_EVOLVE_TASK', 'ON');</code></pre>
+
+    <pre><code class="language-sql">-- Optional controlled window: disable automatic SPM evolution.
+EXEC DBMS_SPM.CONFIGURE('AUTO_SPM_EVOLVE_TASK', 'OFF');</code></pre>
+
+    <h3>SQL Plan review and approval options</h3>
+    <p>
+      A DBA has several review paths for SQL Plan Management. Use automatic modes for routine protection, and use manual review when a specific SQL statement has business impact or when you need a documented approval step.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>Setting or action</th>
+          <th>When to use it</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Real-time automatic SPM</td>
+          <td><code>AUTO_SPM_EVOLVE_TASK = AUTO</code></td>
+          <td>Validate plan changes during foreground execution and reduce regression risk for active SQL.</td>
+        </tr>
+        <tr>
+          <td>Background-verified automatic SPM</td>
+          <td><code>AUTO_SPM_EVOLVE_TASK = ON</code></td>
+          <td>Let the high-frequency SPM evolve task test and accept better plans in the background.</td>
+        </tr>
+        <tr>
+          <td>Disabled automatic SPM</td>
+          <td><code>AUTO_SPM_EVOLVE_TASK = OFF</code></td>
+          <td>Stop automatic SPM evolution when you need a controlled manual-only review window.</td>
+        </tr>
+        <tr>
+          <td>Report-only evolution</td>
+          <td><code>verify =&gt; 'YES'</code>, <code>commit =&gt; 'NO'</code></td>
+          <td>Generate a plan evolution report without changing the accepted status.</td>
+        </tr>
+        <tr>
+          <td>Evolve Advisor review mode</td>
+          <td><code>ACCEPT_PLANS = false</code></td>
+          <td>Let the automatic task verify candidates and produce a report that a DBA can review before manual acceptance.</td>
+        </tr>
+        <tr>
+          <td>Manual verify and approve</td>
+          <td><code>verify =&gt; 'YES'</code>, <code>commit =&gt; 'YES'</code></td>
+          <td>Accept a candidate only after Oracle verifies that it performs better than the current baseline plan.</td>
+        </tr>
+        <tr>
+          <td>Load known-good plan</td>
+          <td><code>DBMS_SPM.LOAD_PLANS_FROM_CURSOR_CACHE</code></td>
+          <td>Seed a baseline from a plan already observed in the cursor cache.</td>
+        </tr>
+        <tr>
+          <td>Fix a plan</td>
+          <td><code>FIXED = YES</code></td>
+          <td>Prefer one accepted plan for a targeted regression case. Use this sparingly.</td>
+        </tr>
+        <tr>
+          <td>Disable a plan</td>
+          <td><code>ENABLED = NO</code></td>
+          <td>Keep the baseline record but prevent the optimizer from using that plan.</td>
+        </tr>
+        <tr>
+          <td>Control purge behavior</td>
+          <td><code>AUTOPURGE = YES</code> or <code>NO</code></td>
+          <td>Allow stale baselines to age out, or retain a critical baseline for controlled workloads.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      For the automatic SPM Evolve Advisor task, DBAs with the required privileges can control whether recommended plans are accepted automatically. Set <code>ACCEPT_PLANS</code> to <code>false</code> for report-first review, then inspect the automatic evolve report before taking manual action.
+    </p>
+
+    <pre><code class="language-sql">-- Configure the automatic evolve task for DBA review before acceptance.
+BEGIN
+  DBMS_SPM.SET_EVOLVE_TASK_PARAMETER(
+    task_name =&gt; 'SYS_AUTO_SPM_EVOLVE_TASK',
+    parameter =&gt; 'ACCEPT_PLANS',
+    value     =&gt; 'false'
+  );
+END;
+/</code></pre>
+
+    <pre><code class="language-sql">-- Confirm the review setting.
+SELECT parameter_name, parameter_value
+FROM   dba_advisor_parameters
+WHERE  task_name = 'SYS_AUTO_SPM_EVOLVE_TASK'
+AND    parameter_name = 'ACCEPT_PLANS';</code></pre>
+
+    <pre><code class="language-sql">-- Increase SQL client display length before reviewing a long report.
+SET LONG 100000</code></pre>
+
+    <pre><code class="language-sql">-- Review the last automatic evolve task report.
+SELECT DBMS_SPM.REPORT_AUTO_EVOLVE_TASK(
+         type    =&gt; 'TEXT',
+         level   =&gt; 'TYPICAL',
+         section =&gt; 'ALL'
+       ) AS evolve_report
+FROM   dual;</code></pre>
+
+    <p>
+      Use report-only evolution first when a DBA needs to review the measured comparison before approving a plan. The report shows what would be accepted, but the baseline is not changed.
+    </p>
+
+    <pre><code class="language-sql">-- Set SQL client display length for the evolution report.
+SET LONG 100000</code></pre>
+
+    <pre><code class="language-sql">-- Report-only evolution: verify a candidate plan but do not accept it.
+SELECT DBMS_SPM.EVOLVE_SQL_PLAN_BASELINE(
+         sql_handle =&gt; '&lt;sql_handle&gt;',
+         plan_name  =&gt; '&lt;plan_name&gt;',
+         verify     =&gt; 'YES',
+         commit     =&gt; 'NO',
+         time_limit =&gt; DBMS_SPM.AUTO_LIMIT
+       ) AS evolve_report
+FROM   dual;</code></pre>
+
+    <p>
+      After reviewing the report, approve only the verified candidate. This changes the candidate plan from unaccepted to accepted when the verification qualifies.
+    </p>
+
+    <pre><code class="language-sql">-- Approve after DBA review: verify and accept the better plan.
+SELECT DBMS_SPM.EVOLVE_SQL_PLAN_BASELINE(
+         sql_handle =&gt; '&lt;sql_handle&gt;',
+         plan_name  =&gt; '&lt;plan_name&gt;',
+         verify     =&gt; 'YES',
+         commit     =&gt; 'YES',
+         time_limit =&gt; DBMS_SPM.AUTO_LIMIT
+       ) AS evolve_report
+FROM   dual;</code></pre>
+
+    <p>
+      When the known-good plan is already in the cursor cache, load it into a SQL plan baseline. Keep it non-fixed unless you have a clear regression-control reason to make it fixed.
+    </p>
+
+    <pre><code class="language-sql">-- Load a known-good plan from the cursor cache.
+DECLARE
+  l_loaded PLS_INTEGER;
+BEGIN
+  l_loaded := DBMS_SPM.LOAD_PLANS_FROM_CURSOR_CACHE(
+                sql_id          =&gt; '&lt;sql_id&gt;',
+                plan_hash_value =&gt; &lt;plan_hash_value&gt;,
+                fixed           =&gt; 'NO',
+                enabled         =&gt; 'YES'
+              );
+
+  DBMS_OUTPUT.PUT_LINE('Plans loaded: ' || l_loaded);
+END;
+/</code></pre>
+
+    <p>
+      Use plan attributes for final control. Mark a plan fixed only for a targeted stability requirement. Disable a plan when you want to preserve the record but prevent optimizer use.
+    </p>
+
+    <pre><code class="language-sql">-- Make a specific accepted plan fixed.
+DECLARE
+  l_changed PLS_INTEGER;
+BEGIN
+  l_changed := DBMS_SPM.ALTER_SQL_PLAN_BASELINE(
+                 sql_handle      =&gt; '&lt;sql_handle&gt;',
+                 plan_name       =&gt; '&lt;plan_name&gt;',
+                 attribute_name  =&gt; 'FIXED',
+                 attribute_value =&gt; 'YES'
+               );
+
+  DBMS_OUTPUT.PUT_LINE('Plans changed: ' || l_changed);
+END;
+/</code></pre>
+
+    <pre><code class="language-sql">-- Disable a baseline plan without dropping it.
+DECLARE
+  l_changed PLS_INTEGER;
+BEGIN
+  l_changed := DBMS_SPM.ALTER_SQL_PLAN_BASELINE(
+                 sql_handle      =&gt; '&lt;sql_handle&gt;',
+                 plan_name       =&gt; '&lt;plan_name&gt;',
+                 attribute_name  =&gt; 'ENABLED',
+                 attribute_value =&gt; 'NO'
+               );
+
+  DBMS_OUTPUT.PUT_LINE('Plans changed: ' || l_changed);
+END;
+/</code></pre>
+
+    <div class="note">
+      For Lakehouse workloads, optimizer hint behavior differs from Transaction Processing and JSON workloads. Confirm <code>OPTIMIZER_IGNORE_HINTS</code> and <code>OPTIMIZER_IGNORE_PARALLEL_HINTS</code> before relying on hints in test cases.
+    </div>
+
+    <h2>Test example</h2>
+    <p>
+      Use actual execution plans when validating SQL. <code>EXPLAIN PLAN</code> shows an estimated plan; <code>DBMS_XPLAN.DISPLAY_CURSOR</code> shows the plan that actually ran.
+    </p>
+
+    <pre><code class="language-sql">-- Create a compact test table with repeatable data distribution.
+CREATE TABLE perf_orders AS
+SELECT level AS order_id,
+       MOD(level, 1000) AS customer_id,
+       DATE '2025-01-01' + MOD(level, 365) AS order_date,
+       ROUND(DBMS_RANDOM.VALUE(10, 500), 2) AS order_amount
+FROM   dual
+CONNECT BY level &lt;= 100000;</code></pre>
+
+    <pre><code class="language-sql">-- Gather optimizer statistics for the test table.
+BEGIN
+  DBMS_STATS.GATHER_TABLE_STATS(
+    ownname          =&gt; USER,
+    tabname          =&gt; 'PERF_ORDERS',
+    estimate_percent =&gt; DBMS_STATS.AUTO_SAMPLE_SIZE,
+    method_opt       =&gt; 'FOR ALL COLUMNS SIZE AUTO',
+    cascade          =&gt; TRUE
+  );
+END;
+/</code></pre>
+
+    <pre><code class="language-sql">-- Run the query with row-source statistics.
+SELECT /*+ gather_plan_statistics */
+       COUNT(*) AS order_count
+FROM   perf_orders
+WHERE  customer_id = 42;</code></pre>
+
+    <pre><code class="language-sql">-- Review estimated rows versus actual rows.
+SELECT *
+FROM   TABLE(DBMS_XPLAN.DISPLAY_CURSOR(
+         sql_id =&gt; NULL,
+         cursor_child_no =&gt; NULL,
+         format =&gt; 'TYPICAL +IOSTATS LAST +PEEKED_BINDS'
+       ));</code></pre>
+
+    <p>
+      To find SQL that deserves attention, start with elapsed time, CPU time, buffer gets, and disk reads.
+    </p>
+
+    <pre><code class="language-sql">-- Top SQL by elapsed time in the shared SQL area.
+SELECT sql_id,
+       executions,
+       ROUND(elapsed_time / 1e6, 1) AS total_elapsed_sec,
+       ROUND(elapsed_time / NULLIF(executions, 0) / 1e6, 3) AS avg_elapsed_sec,
+       ROUND(cpu_time / 1e6, 1) AS total_cpu_sec,
+       buffer_gets,
+       disk_reads,
+       parsing_schema_name,
+       SUBSTR(sql_text, 1, 100) AS sql_preview
+FROM   v$sqlarea
+WHERE  executions &gt; 0
+ORDER  BY elapsed_time DESC
+FETCH FIRST 20 ROWS ONLY;</code></pre>
+
+    <h2>Expected results</h2>
+    <ul>
+      <li>Automatic optimizer statistics collection should be enabled in normal Autonomous Database operation.</li>
+      <li>Real-time SQL Plan Management should show <code>AUTO</code>; background-verified automatic SPM should show <code>ON</code>; disabled automatic SPM should show <code>OFF</code>.</li>
+      <li><code>DBA_SQL_PLAN_BASELINES</code> should clearly separate accepted, unaccepted, enabled, disabled, fixed, reproduced, and autopurge-enabled plans.</li>
+      <li>Report-only evolution should return an evolution report without changing <code>ACCEPTED</code> from <code>NO</code> to <code>YES</code>.</li>
+      <li>When <code>ACCEPT_PLANS</code> is <code>false</code>, the automatic evolve task should verify candidates and produce a report without accepting them automatically.</li>
+      <li>Manual approval with <code>commit =&gt; 'YES'</code> should accept only the qualifying plan after verification.</li>
+      <li>Fixed plans should be rare and tied to a specific regression-control requirement; disabled plans should remain visible but unavailable to the optimizer.</li>
+      <li>Execution plan output should include actual row statistics when the statement uses <code>gather_plan_statistics</code>.</li>
+      <li>Large gaps between estimated rows and actual rows usually point to statistics, histogram, bind selectivity, or predicate-shape issues.</li>
+      <li>Top SQL review should identify whether the immediate tuning target is CPU, logical I/O, physical I/O, waits, or concurrency.</li>
+    </ul>
+  </div>
+
+  <div class="pager" aria-label="Previous and next">
+    <a href="01-autonomous-database-26ai-new-features.html">Previous: 23ai and 26ai New Features</a>
+    <a href="03-automatic-indexing.html">Next: Automatic Indexing</a>
+  </div>
+</div>
+<script src="../assets/copy-code.js"></script>
+</body>
+</html>

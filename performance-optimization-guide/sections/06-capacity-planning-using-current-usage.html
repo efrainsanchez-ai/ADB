@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Capacity Planning Using Current Usage - Oracle Autonomous Database Performance Optimization Guide</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="../assets/blog.css">
+</head>
+<body>
+<div class="page">
+  <div class="site-header">
+    <div class="eyebrow">Oracle Autonomous Database Performance Optimization Guide</div>
+    <h1>Capacity Planning Using Current Usage</h1>
+    <p class="summary">
+      Capacity planning estimates future CPU, storage, and workload requirements from observed usage. Use database views for local detail, OCI Monitoring for service-level metrics, OCI alarms for thresholds, and Operations Insights for fleet-level trend and forecast analysis.
+    </p>
+  </div>
+
+  <div class="nav-row" aria-label="Section navigation">
+    <a href="../index.html">Guide index</a>
+    <a href="05-compression.html">Previous: Compression</a>
+    <a href="07-autonomous-database-mcp-server.html">Next: Autonomous AI Database MCP Server</a>
+  </div>
+
+  <div>
+    <h2>What it is</h2>
+    <p>
+      Capacity planning is the process of translating current usage into future resource requirements. For Autonomous Database, the useful inputs are CPU utilization, average active sessions, queued statements, execution rate, transaction rate, physical I/O, storage used, storage growth, and application concurrency.
+    </p>
+
+    <div class="infographic" role="img" aria-label="Capacity planning flow combining database snapshots, OCI metrics, forecasts, alarms, and scaling decisions">
+      <div class="infographic-title">Capacity Planning Signal Chain</div>
+      <div class="info-flow">
+        <div class="info-node metric">
+          <strong>Database Detail</strong>
+          <span>SQL snapshots, top SQL, segments, AAS, and p95 CPU.</span>
+        </div>
+        <div class="info-node metric">
+          <strong>OCI Metrics</strong>
+          <span>CpuUtilization, StorageUsed, queued statements, I/O, and transactions.</span>
+        </div>
+        <div class="info-node">
+          <strong>Forecast</strong>
+          <span>Operations Insights, growth rate, trend windows, and fleet ranking.</span>
+        </div>
+        <div class="info-node decision">
+          <strong>Decide</strong>
+          <span>Scale, tune SQL, compress, partition, or adjust auto scaling.</span>
+        </div>
+      </div>
+      <div class="info-strip">
+        <div class="info-pill">30/60/90-day trend</div>
+        <div class="info-pill">p95 instead of one spike</div>
+        <div class="info-pill">Alarms for sustained pressure</div>
+      </div>
+    </div>
+    <p class="infographic-legend">
+      Color guide: blue-accent cards highlight utilization telemetry, gray-accent cards highlight capacity decisions, and plain cards show normal planning steps.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Metric area</th>
+          <th>What to measure</th>
+          <th>Planning use</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>CPU</td>
+          <td>Average, peak, and p95 CPU utilization.</td>
+          <td>Estimate base ECPU requirements and headroom.</td>
+        </tr>
+        <tr>
+          <td>Concurrency</td>
+          <td>Average active sessions, running statements, queued statements, sessions.</td>
+          <td>Identify saturation, queuing, or service-level pressure.</td>
+        </tr>
+        <tr>
+          <td>Storage</td>
+          <td>Storage used, reserved storage, growth per month, largest segments.</td>
+          <td>Estimate storage allocation and compression opportunities.</td>
+        </tr>
+        <tr>
+          <td>Workload</td>
+          <td>Executions, user calls, commits, top SQL, I/O volume.</td>
+          <td>Separate scaling needs from SQL tuning opportunities.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      OCI services add the cloud control-plane view that SQL alone cannot provide. Use them to trend service metrics over time, compare multiple databases, create threshold alarms, and plan compute or storage changes from the same resource model used by the OCI Console and APIs.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>OCI service</th>
+          <th>Use in capacity planning</th>
+          <th>Typical outputs</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>OCI Monitoring and Metrics Explorer</td>
+          <td>Query Autonomous Database metrics in the <code>oci_autonomous_database</code> namespace.</td>
+          <td>CPU, sessions, queued statements, storage, I/O, transactions, user calls, and latency trends.</td>
+        </tr>
+        <tr>
+          <td>OCI Monitoring Alarms and Notifications</td>
+          <td>Notify teams when utilization crosses operational thresholds.</td>
+          <td>Alerts for CPU pressure, storage utilization, queued statements, failed connections, or availability issues.</td>
+        </tr>
+        <tr>
+          <td>OCI Operations Insights Capacity Planning</td>
+          <td>Analyze resource trends across one database or a fleet of databases and hosts.</td>
+          <td>CPU and storage forecasts, top consumers, growth-rate views, and high-utilization candidates.</td>
+        </tr>
+        <tr>
+          <td>OCI Database Management</td>
+          <td>View database management dashboards, including Capacity Planning when Operations Insights is enabled.</td>
+          <td>Recent utilization dashboards with drill-down links into Operations Insights.</td>
+        </tr>
+        <tr>
+          <td>Autonomous Database resource allocation</td>
+          <td>Change ECPU count, storage allocation, and compute or storage auto scaling from the Console or API.</td>
+          <td>Manual scaling decisions and auto scaling settings aligned to observed demand.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Why it matters</h2>
+    <p>
+      Sizing from a single peak or a rough user count is unreliable. Current usage trends show whether the database needs more base capacity, auto scaling, SQL tuning, compression, partitioning, or connection-service changes. The best capacity plan uses both database-level detail and OCI service metrics because the database view explains workload behavior while the OCI view explains provisioned capacity, cloud service utilization, and fleet trends.
+    </p>
+
+    <h2>Check if enabled</h2>
+    <p>
+      Capacity planning is not a feature switch. Check whether you already collect snapshots, then review current storage and workload pressure.
+    </p>
+
+    <pre><code class="language-sql">-- Check whether a local capacity snapshot table exists.
+SELECT table_name
+FROM   user_tables
+WHERE  table_name = 'CAPACITY_USAGE_SNAPSHOT';</code></pre>
+
+    <pre><code class="language-sql">-- Check whether a scheduled snapshot job exists.
+SELECT job_name,
+       enabled,
+       state,
+       repeat_interval,
+       last_start_date,
+       next_run_date
+FROM   user_scheduler_jobs
+WHERE  job_name = 'CAPACITY_USAGE_SNAPSHOT_JOB';</code></pre>
+
+    <p>
+      Review current database storage, top segments, and top SQL. These checks help distinguish resource growth from individual SQL problems.
+    </p>
+
+    <pre><code class="language-sql">-- Current storage usage by schema.
+SELECT owner,
+       ROUND(SUM(bytes) / POWER(1024, 3), 2) AS used_gb
+FROM   dba_segments
+GROUP  BY owner
+ORDER  BY used_gb DESC
+FETCH FIRST 20 ROWS ONLY;</code></pre>
+
+    <pre><code class="language-sql">-- Largest segments.
+SELECT owner,
+       segment_name,
+       segment_type,
+       ROUND(bytes / POWER(1024, 3), 2) AS size_gb
+FROM   dba_segments
+ORDER  BY bytes DESC
+FETCH FIRST 30 ROWS ONLY;</code></pre>
+
+    <pre><code class="language-sql">-- Current workload indicators.
+SELECT metric_name, value, metric_unit
+FROM   v$sysmetric
+WHERE  metric_name IN (
+  'Host CPU Utilization (%)',
+  'Average Active Sessions',
+  'Executions Per Sec',
+  'User Calls Per Sec'
+)
+ORDER  BY metric_name;</code></pre>
+
+    <pre><code class="language-sql">-- Top SQL by total elapsed time.
+SELECT sql_id,
+       executions,
+       ROUND(elapsed_time / 1e6, 1) AS total_elapsed_sec,
+       ROUND(elapsed_time / NULLIF(executions, 0) / 1e6, 3) AS avg_elapsed_sec,
+       ROUND(cpu_time / 1e6, 1) AS total_cpu_sec,
+       buffer_gets,
+       disk_reads,
+       SUBSTR(sql_text, 1, 100) AS sql_preview
+FROM   v$sqlarea
+WHERE  executions &gt; 0
+ORDER  BY elapsed_time DESC
+FETCH FIRST 20 ROWS ONLY;</code></pre>
+
+    <p>
+      In OCI, confirm that service-level metrics and capacity tools are available for the Autonomous Database resource. Autonomous Database metrics are emitted in the <code>oci_autonomous_database</code> namespace and can be queried in Metrics Explorer. Use the database OCID as the safest filter when building charts or alarms.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>OCI check</th>
+          <th>Where to check</th>
+          <th>What to confirm</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Metrics visibility</td>
+          <td>Observability &amp; Management, Monitoring, Metrics Explorer</td>
+          <td>Namespace <code>oci_autonomous_database</code> has metric streams for the database.</td>
+        </tr>
+        <tr>
+          <td>Resource dimensions</td>
+          <td>Metrics Explorer metric dimensions</td>
+          <td>Filter by <code>RESOURCEID</code>, <code>DISPLAYNAME</code>, <code>REGION</code>, and <code>deploymentType</code> as needed.</td>
+        </tr>
+        <tr>
+          <td>Alarms</td>
+          <td>Observability &amp; Management, Monitoring, Alarm Definitions</td>
+          <td>Threshold alarms exist for sustained CPU, storage, queued statements, or availability conditions.</td>
+        </tr>
+        <tr>
+          <td>Operations Insights</td>
+          <td>Observability &amp; Management, Operations Insights, Capacity Planning</td>
+          <td>The database is enabled for Capacity Planning if fleet forecasting is required.</td>
+        </tr>
+        <tr>
+          <td>Auto scaling settings</td>
+          <td>Autonomous Database details, More Actions, Manage resource allocation</td>
+          <td>Compute auto scaling and storage auto scaling settings match the workload and cost model.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>How to enable</h2>
+    <p>
+      For local trend analysis, create a lightweight snapshot table and schedule periodic captures. Hourly snapshots are usually more useful than one daily sample because they show workload shape across business hours and batch windows.
+    </p>
+
+    <pre><code class="language-sql">-- Create a local capacity snapshot table.
+CREATE TABLE capacity_usage_snapshot (
+  sample_time          TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP NOT NULL,
+  cpu_util_pct         NUMBER,
+  avg_active_sessions  NUMBER,
+  executions_per_sec   NUMBER,
+  user_calls_per_sec   NUMBER,
+  segment_used_gb      NUMBER
+);</code></pre>
+
+    <pre><code class="language-sql">-- Insert one snapshot manually.
+INSERT INTO capacity_usage_snapshot (
+  cpu_util_pct,
+  avg_active_sessions,
+  executions_per_sec,
+  user_calls_per_sec,
+  segment_used_gb
+)
+WITH m AS (
+  SELECT metric_name, MAX(value) AS value
+  FROM   v$sysmetric
+  WHERE  metric_name IN (
+    'Host CPU Utilization (%)',
+    'Average Active Sessions',
+    'Executions Per Sec',
+    'User Calls Per Sec'
+  )
+  GROUP  BY metric_name
+),
+s AS (
+  SELECT SUM(bytes) / POWER(1024, 3) AS segment_used_gb
+  FROM   dba_segments
+)
+SELECT MAX(CASE WHEN metric_name = 'Host CPU Utilization (%)' THEN value END),
+       MAX(CASE WHEN metric_name = 'Average Active Sessions' THEN value END),
+       MAX(CASE WHEN metric_name = 'Executions Per Sec' THEN value END),
+       MAX(CASE WHEN metric_name = 'User Calls Per Sec' THEN value END),
+       MAX(s.segment_used_gb)
+FROM   m
+CROSS  JOIN s;</code></pre>
+
+    <pre><code class="language-sql">-- Commit the manual capacity snapshot.
+COMMIT;</code></pre>
+
+    <p>
+      Schedule the same capture hourly. In production, choose a retention policy and purge old local snapshots if you keep this table long term.
+    </p>
+
+    <pre><code class="language-sql">BEGIN
+  DBMS_SCHEDULER.CREATE_JOB(
+    job_name        =&gt; 'CAPACITY_USAGE_SNAPSHOT_JOB',
+    job_type        =&gt; 'PLSQL_BLOCK',
+    job_action      =&gt; q'[
+      BEGIN
+        INSERT INTO capacity_usage_snapshot (
+          cpu_util_pct,
+          avg_active_sessions,
+          executions_per_sec,
+          user_calls_per_sec,
+          segment_used_gb
+        )
+        WITH m AS (
+          SELECT metric_name, MAX(value) AS value
+          FROM   v$sysmetric
+          WHERE  metric_name IN (
+            'Host CPU Utilization (%)',
+            'Average Active Sessions',
+            'Executions Per Sec',
+            'User Calls Per Sec'
+          )
+          GROUP BY metric_name
+        ),
+        s AS (
+          SELECT SUM(bytes) / POWER(1024, 3) AS segment_used_gb
+          FROM   dba_segments
+        )
+        SELECT MAX(CASE WHEN metric_name = 'Host CPU Utilization (%)' THEN value END),
+               MAX(CASE WHEN metric_name = 'Average Active Sessions' THEN value END),
+               MAX(CASE WHEN metric_name = 'Executions Per Sec' THEN value END),
+               MAX(CASE WHEN metric_name = 'User Calls Per Sec' THEN value END),
+               MAX(s.segment_used_gb)
+        FROM   m
+        CROSS JOIN s;
+
+        COMMIT;
+      END;
+    ]',
+    start_date      =&gt; SYSTIMESTAMP,
+    repeat_interval =&gt; 'FREQ=HOURLY;INTERVAL=1',
+    enabled         =&gt; TRUE,
+    auto_drop       =&gt; FALSE,
+    comments        =&gt; 'Hourly local capacity usage snapshot'
+  );
+END;
+/</code></pre>
+
+    <p>
+      Enable the OCI services that support the planning workflow. Monitoring metrics are available from the service namespace; alarms, Operations Insights, and Database Management dashboards require the appropriate OCI permissions and service configuration.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Planning task</th>
+          <th>OCI service action</th>
+          <th>Practical guidance</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Build metric charts</td>
+          <td>Create Metrics Explorer queries against <code>oci_autonomous_database</code>.</td>
+          <td>Track 30, 60, and 90-day trends for CPU, storage, sessions, queued statements, and I/O.</td>
+        </tr>
+        <tr>
+          <td>Create alerts</td>
+          <td>Create Monitoring alarms and route them through Notifications.</td>
+          <td>Use sustained thresholds rather than short spikes, for example 30 to 60 minutes of high utilization.</td>
+        </tr>
+        <tr>
+          <td>Forecast fleet needs</td>
+          <td>Enable Operations Insights and use Capacity Planning.</td>
+          <td>Compare top consumers, growth rates, and forecasted CPU or storage pressure across compartments.</td>
+        </tr>
+        <tr>
+          <td>Review database details</td>
+          <td>Use Database Management after Operations Insights is enabled.</td>
+          <td>Use the Capacity Planning dashboard for recent data and drill down to Operations Insights for deeper analysis.</td>
+        </tr>
+        <tr>
+          <td>Apply capacity changes</td>
+          <td>Use Autonomous Database resource allocation in the OCI Console or API.</td>
+          <td>Adjust base ECPUs, storage, compute auto scaling, or storage auto scaling after validating demand and cost impact.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      For Autonomous Database Serverless, compute auto scaling is enabled by default and storage auto scaling is disabled by default. Compute auto scaling can use up to three times the base ECPU or OCPU count, and storage auto scaling can expand up to three times reserved base storage, subject to documented limits and billing behavior.
+    </div>
+
+    <h2>Test example</h2>
+    <p>
+      Use snapshots to estimate growth and calculate p95 usage. For a more complete view, compare these local results with OCI Monitoring metrics such as <code>CpuUtilization</code>, <code>StorageUsed</code>, <code>StorageUtilization</code>, <code>StorageMax</code>, <code>TransactionCount</code>, <code>UserCalls</code>, <code>PhysicalReadTotalBytes</code>, and <code>PhysicalWriteTotalBytes</code>.
+    </p>
+
+    <pre><code class="language-sql">-- Estimate monthly storage growth from local snapshots.
+SELECT MIN(sample_time) AS first_sample,
+       MAX(sample_time) AS last_sample,
+       ROUND(MIN(segment_used_gb), 2) AS first_used_gb,
+       ROUND(MAX(segment_used_gb), 2) AS last_used_gb,
+       ROUND(
+         (MAX(segment_used_gb) - MIN(segment_used_gb)) /
+         NULLIF(MAX(CAST(sample_time AS DATE)) - MIN(CAST(sample_time AS DATE)), 0) * 30,
+         2
+       ) AS estimated_growth_gb_per_month
+FROM   capacity_usage_snapshot;</code></pre>
+
+    <pre><code class="language-sql">-- Daily trend with average and peak values.
+SELECT TRUNC(CAST(sample_time AS DATE)) AS sample_day,
+       ROUND(AVG(cpu_util_pct), 2) AS avg_cpu_pct,
+       ROUND(MAX(cpu_util_pct), 2) AS max_cpu_pct,
+       ROUND(AVG(avg_active_sessions), 2) AS avg_active_sessions,
+       ROUND(MAX(avg_active_sessions), 2) AS max_active_sessions,
+       ROUND(AVG(executions_per_sec), 2) AS avg_execs_per_sec,
+       ROUND(MAX(segment_used_gb), 2) AS segment_used_gb
+FROM   capacity_usage_snapshot
+GROUP  BY TRUNC(CAST(sample_time AS DATE))
+ORDER  BY sample_day;</code></pre>
+
+    <pre><code class="language-sql">-- p95 CPU and workload metrics from local snapshots.
+SELECT ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY cpu_util_pct), 2) AS p95_cpu_pct,
+       ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY avg_active_sessions), 2) AS p95_aas,
+       ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY executions_per_sec), 2) AS p95_execs_per_sec,
+       ROUND(MAX(segment_used_gb), 2) AS latest_segment_used_gb
+FROM   capacity_usage_snapshot;</code></pre>
+
+    <p>
+      The following sizing example uses simple inputs. Replace the values with your measured p95 CPU, expected workload growth, target CPU headroom, current storage, and observed monthly growth.
+    </p>
+
+    <pre><code class="language-sql">-- Simple sizing calculation for CPU and storage.
+WITH input AS (
+  SELECT 8     AS current_ecpus,
+         65    AS p95_cpu_pct,
+         70    AS target_cpu_pct,
+         1.30  AS workload_growth_factor,
+         1.8   AS storage_used_tb,
+         0.18  AS monthly_growth_tb,
+         12    AS planning_months,
+         1.20  AS storage_headroom_factor
+  FROM   dual
+)
+SELECT CEIL(current_ecpus * (p95_cpu_pct / target_cpu_pct) * workload_growth_factor)
+         AS recommended_base_ecpus,
+       CEIL((storage_used_tb + monthly_growth_tb * planning_months) * storage_headroom_factor)
+         AS recommended_storage_tb
+FROM   input;</code></pre>
+
+    <p>
+      Use OCI Metrics Explorer to validate the SQL-derived estimates with service metrics. These examples show the metric names and MQL-style expressions to build charts or alarms. Add a <code>RESOURCEID</code> dimension filter for the target Autonomous Database.
+    </p>
+
+    <pre><code class="language-text">-- CPU pressure over time.
+CpuUtilization[5m].mean()</code></pre>
+
+    <pre><code class="language-text">-- Average active sessions.
+AverageActiveSessions[5m].mean()</code></pre>
+
+    <pre><code class="language-text">-- Running statements.
+RunningStatements[5m].mean()</code></pre>
+
+    <pre><code class="language-text">-- Queued statements.
+QueuedStatements[5m].sum()</code></pre>
+
+    <pre><code class="language-text">-- Storage currently used.
+StorageUsed[1h].max()</code></pre>
+
+    <pre><code class="language-text">-- Allocated storage.
+StorageAllocated[1h].max()</code></pre>
+
+    <pre><code class="language-text">-- Maximum storage limit.
+StorageMax[1h].max()</code></pre>
+
+    <pre><code class="language-text">-- Storage utilization percentage.
+StorageUtilization[1h].mean()</code></pre>
+
+    <pre><code class="language-text">-- SQL execution volume.
+ExecuteCount[5m].sum()</code></pre>
+
+    <pre><code class="language-text">-- User call volume.
+UserCalls[5m].sum()</code></pre>
+
+    <pre><code class="language-text">-- Transaction volume.
+TransactionCount[5m].sum()</code></pre>
+
+    <pre><code class="language-text">-- IOPS trend.
+IOPS[5m].mean()</code></pre>
+
+    <pre><code class="language-text">-- I/O throughput trend.
+IOThroughput[5m].mean()</code></pre>
+
+    <pre><code class="language-text">-- Physical read volume.
+PhysicalReadTotalBytes[5m].sum()</code></pre>
+
+    <pre><code class="language-text">-- Physical write volume.
+PhysicalWriteTotalBytes[5m].sum()</code></pre>
+
+    <p>
+      Use Monitoring alarms for operational thresholds and Operations Insights for planning forecasts. The following examples are starting points; tune thresholds to the workload and service-level objectives.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Capacity signal</th>
+          <th>Example alarm or forecast input</th>
+          <th>Planning action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Sustained CPU pressure</td>
+          <td><code>CpuUtilization[5m].mean() &gt; 80</code> for a sustained window.</td>
+          <td>Check top SQL and waits first, then evaluate base ECPU increase or compute auto scaling behavior.</td>
+        </tr>
+        <tr>
+          <td>Queued SQL</td>
+          <td><code>QueuedStatements[5m].sum() &gt; 0</code> during user-facing windows.</td>
+          <td>Review service selection, concurrency, parallelism, locks, and CPU headroom.</td>
+        </tr>
+        <tr>
+          <td>Storage pressure</td>
+          <td><code>StorageUtilization[1h].mean() &gt; 80</code> or forecasted high utilization in Operations Insights.</td>
+          <td>Estimate growth, enable or adjust storage auto scaling, compress large tables, or remove unused data.</td>
+        </tr>
+        <tr>
+          <td>I/O growth</td>
+          <td>Rising <code>IOPS</code>, <code>IOThroughput</code>, or physical read/write byte metrics.</td>
+          <td>Review top SQL, partitioning, compression, indexing, and batch windows before increasing capacity.</td>
+        </tr>
+        <tr>
+          <td>Fleet growth</td>
+          <td>Operations Insights top consumers and growth-rate views.</td>
+          <td>Prioritize databases with high utilization and high growth over databases with isolated spikes.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Expected results</h2>
+    <ul>
+      <li>The growth query should show the observed storage delta and an estimated monthly growth rate.</li>
+      <li>The daily trend should show whether CPU, active sessions, execution rate, and storage are rising, stable, or tied to specific windows.</li>
+      <li>The p95 query should provide a better planning signal than a single maximum spike.</li>
+      <li>In the sizing example, 8 current ECPUs at 65% p95 CPU, with 30% workload growth and a 70% target CPU level, produces a recommendation of 10 base ECPUs.</li>
+      <li>In the same example, 1.8 TB current storage plus 0.18 TB monthly growth for 12 months with 20% headroom produces a recommendation of 5 TB.</li>
+      <li>If queued statements or active sessions rise while CPU stays low, investigate waits, service selection, locks, or SQL shape before scaling CPU.</li>
+      <li>OCI Monitoring should show whether the database is approaching CPU, storage, session, or I/O thresholds at the service level.</li>
+      <li>Operations Insights should identify top consumers, growth trends, and forecasted CPU or storage pressure for individual databases or fleets.</li>
+      <li>Auto scaling decisions should be based on observed utilization, forecast horizon, workload criticality, and billing impact.</li>
+    </ul>
+  </div>
+
+  <div class="pager" aria-label="Previous and next">
+    <a href="05-compression.html">Previous: Compression</a>
+    <a href="07-autonomous-database-mcp-server.html">Next: Autonomous AI Database MCP Server</a>
+  </div>
+</div>
+<script src="../assets/copy-code.js"></script>
+</body>
+</html>

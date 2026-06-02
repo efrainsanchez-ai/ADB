@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Ask Oracle Chatbot Powered by Select AI - Oracle Autonomous Database Performance Optimization Guide</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="../assets/blog.css">
+</head>
+<body>
+<div class="page">
+  <div class="site-header">
+    <div class="eyebrow">Oracle Autonomous Database Performance Optimization Guide</div>
+    <h1>Ask Oracle Chatbot Powered by Select AI</h1>
+    <p class="summary">
+      Ask Oracle is a sample Oracle APEX chatbot application that uses Autonomous AI Database Select AI profiles and Select AI Agents to provide a ready-to-use interface for LLM chat, natural language to SQL, retrieval augmented generation, charts, and task-oriented agent workflows.
+    </p>
+  </div>
+
+  <div class="nav-row" aria-label="Section navigation">
+    <a href="../index.html">Guide index</a>
+    <a href="07-autonomous-database-mcp-server.html">Previous: Autonomous AI Database MCP Server</a>
+    <a href="09-references.html">Next: References</a>
+  </div>
+
+  <div>
+    <h2>What it is</h2>
+    <p>
+      Ask Oracle is a sample APEX application for Autonomous AI Database that turns Select AI capabilities into a chatbot user experience. It uses configured AI profiles and Select AI Agent definitions so users can ask questions, inspect generated SQL, create charts from result sets, use RAG-backed profiles, and work with agent teams from a browser-based interface.
+    </p>
+
+    <div class="infographic" role="img" aria-label="Ask Oracle chatbot flow from user prompt through APEX, Select AI profiles, and Autonomous AI Database results">
+      <div class="infographic-title">Ask Oracle Interaction Flow</div>
+      <div class="info-flow">
+        <div class="info-node">
+          <strong>User Prompt</strong>
+          <span>Chat, data question, chart request, RAG question, or agent task.</span>
+        </div>
+        <div class="info-node metric">
+          <strong>APEX Chat UI</strong>
+          <span>Conversation history, settings, prompt details, SQL display, and chart controls.</span>
+        </div>
+        <div class="info-node">
+          <strong>Select AI</strong>
+          <span>AI profile routes chat, NL2SQL, narration, and RAG actions.</span>
+        </div>
+        <div class="info-node decision">
+          <strong>Agent Team</strong>
+          <span>Select AI Agents handle approved task workflows and tools.</span>
+        </div>
+        <div class="info-node metric">
+          <strong>Results</strong>
+          <span>Answers, SQL, result sets, charts, explanations, and narrated output.</span>
+        </div>
+      </div>
+    </div>
+    <p class="infographic-legend">
+      Color guide: blue-accent cards highlight interface or result signals, gray-accent cards highlight agent or tool decisions, and plain cards show the normal chatbot interaction flow.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Capability</th>
+          <th>What Ask Oracle provides</th>
+          <th>What to validate</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Chat</td>
+          <td>Conversation with the LLM configured in the selected AI profile.</td>
+          <td>The selected profile points to an approved model provider or private model.</td>
+        </tr>
+        <tr>
+          <td>NL2SQL</td>
+          <td>Natural-language questions converted into SQL against Autonomous AI Database.</td>
+          <td>Generated SQL is visible, scoped, and uses only intended schemas or objects.</td>
+        </tr>
+        <tr>
+          <td>RAG</td>
+          <td>Answers grounded by the vector index configured in the selected AI profile.</td>
+          <td>Profiles with vector indexes are clearly separated from NL2SQL-only profiles.</td>
+        </tr>
+        <tr>
+          <td>AI Agents</td>
+          <td>Interaction with selected Select AI Agent teams for task-oriented workflows.</td>
+          <td>Agent tools are approved, least-privilege, and auditable.</td>
+        </tr>
+        <tr>
+          <td>Charts and explanations</td>
+          <td>Charts from NL2SQL result sets plus generated SQL explanations and narrated output.</td>
+          <td>Charts match result columns, and users can inspect SQL before trusting results.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Why it matters</h2>
+    <p>
+      Ask Oracle is useful when teams want a practical front end for Select AI without building a custom user interface first. It gives technical and non-technical users a way to try natural-language access to trusted database data, inspect generated SQL, create visual summaries, and test agent workflows from an APEX application that can be customized.
+    </p>
+
+    <h2>Check if enabled</h2>
+    <p>
+      Before importing the sample app, confirm that the Autonomous AI Database environment has APEX, Select AI prerequisites, at least one AI profile, and optional agent or RAG configuration.
+    </p>
+
+    <pre><code class="language-sql">-- Confirm database identity.
+SELECT SYS_CONTEXT('USERENV', 'DB_NAME') AS database_name,
+       SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA') AS current_schema
+FROM   dual;</code></pre>
+
+    <pre><code class="language-sql">-- Confirm database version.
+SELECT banner_full
+FROM   v$version
+WHERE  banner_full LIKE 'Oracle Database%';</code></pre>
+
+    <pre><code class="language-sql">-- Review available AI profiles for the current user.
+SELECT profile_name,
+       status,
+       description
+FROM   user_cloud_ai_profiles
+ORDER  BY profile_name;</code></pre>
+
+    <pre><code class="language-sql">-- Review available Select AI Agent tools or teams if configured.
+SELECT tool_name,
+       status
+FROM   user_cloud_ai_agent_tools
+ORDER  BY tool_name;</code></pre>
+
+    <p>
+      In APEX, confirm that you can create or access a workspace, import an application, install supporting objects, and run the application as an authenticated user.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Check</th>
+          <th>Where to verify</th>
+          <th>Expected result</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>APEX workspace</td>
+          <td>Autonomous Database, Database Actions, APEX.</td>
+          <td>A workspace exists for the schema that will own or run the app.</td>
+        </tr>
+        <tr>
+          <td>AI profile</td>
+          <td>SQL Workshop or SQL Worksheet.</td>
+          <td>At least one AI profile is created and enabled for chat or NL2SQL.</td>
+        </tr>
+        <tr>
+          <td>RAG profile</td>
+          <td>AI profile details.</td>
+          <td>Profiles that use a vector index are available if RAG will be tested.</td>
+        </tr>
+        <tr>
+          <td>Agent team</td>
+          <td>Select AI Agent metadata.</td>
+          <td>An agent or agent team exists if workflow tests are required.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>How to enable</h2>
+    <p>
+      Use a test workspace first. The sample app is intended to accelerate evaluation, but production use still requires normal APEX review, data-security review, and Select AI profile governance.
+    </p>
+
+    <h3>Step 1: Prepare Select AI</h3>
+    <p>
+      Configure Select AI prerequisites and create at least one AI profile. Scope profiles to the schemas and objects that the chatbot should use.
+    </p>
+
+    <pre><code class="language-sql">-- Example pattern only. Use the provider and attributes approved for your environment.
+BEGIN
+  DBMS_CLOUD_AI.CREATE_PROFILE(
+    profile_name =&gt; 'ASK_ORACLE_NL2SQL',
+    attributes   =&gt; '{
+      "provider": "oci",
+      "credential_name": "OCI_GENAI_CRED",
+      "object_list": [
+        {"owner": "APP", "name": "ORDERS"},
+        {"owner": "APP", "name": "CUSTOMERS"}
+      ]
+    }'
+  );
+END;
+/</code></pre>
+
+    <pre><code class="language-sql">-- Set the active Select AI profile for the session.
+BEGIN
+  DBMS_CLOUD_AI.SET_PROFILE('ASK_ORACLE_NL2SQL');
+END;
+/</code></pre>
+
+    <h3>Step 2: Prepare optional RAG and agent assets</h3>
+    <p>
+      If you want RAG, create or select an AI profile with a vector index. If you want workflow automation, create or select a Select AI Agent or agent team with approved tools.
+    </p>
+
+    <pre><code class="language-sql">-- Review profile metadata before assigning it as the Ask Oracle default.
+SELECT profile_name,
+       status,
+       description
+FROM   user_cloud_ai_profiles
+ORDER  BY profile_name;</code></pre>
+
+    <pre><code class="language-sql">-- Review agent tool metadata before exposing an agent team through the app.
+SELECT tool_name,
+       description,
+       status
+FROM   user_cloud_ai_agent_tools
+ORDER  BY tool_name;</code></pre>
+
+    <h3>Step 3: Import the Ask Oracle APEX application</h3>
+    <p>
+      Download the Ask Oracle sample app linked from the Oracle blog. In APEX App Builder, import the application, install supporting objects, and complete the standard import workflow.
+    </p>
+
+    <ol>
+      <li>Open the target workspace in APEX App Builder.</li>
+      <li>Choose Import.</li>
+      <li>Upload the Ask Oracle application export file.</li>
+      <li>Review application ID, parsing schema, and installation options.</li>
+      <li>Install supporting objects.</li>
+      <li>Run the application.</li>
+    </ol>
+
+    <h3>Step 4: Configure Ask Oracle settings</h3>
+    <p>
+      In the application settings, select default AI profiles and agent teams. Use separate profiles for chat, NL2SQL, and RAG when the data scope or model behavior differs.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Setting</th>
+          <th>Recommended configuration</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Default chat profile</td>
+          <td>Use a profile intended for general LLM conversation.</td>
+        </tr>
+        <tr>
+          <td>Default NL2SQL profile</td>
+          <td>Use a profile scoped to approved application tables and views.</td>
+        </tr>
+        <tr>
+          <td>Default RAG profile</td>
+          <td>Use a profile with the correct vector index configured.</td>
+        </tr>
+        <tr>
+          <td>Default agent team</td>
+          <td>Use an agent team with narrow tools and clear operational boundaries.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Test example</h2>
+    <p>
+      Test one capability at a time. Keep the first prompts simple so you can confirm profile routing, generated SQL, result shape, and chart behavior.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Test</th>
+          <th>Prompt</th>
+          <th>Expected result</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Chat</td>
+          <td>Summarize what this assistant can help with.</td>
+          <td>The response comes from the selected chat profile without querying database tables.</td>
+        </tr>
+        <tr>
+          <td>NL2SQL</td>
+          <td>Show total orders by month for the last six months.</td>
+          <td>The app returns a result set and lets the user inspect the generated SQL.</td>
+        </tr>
+        <tr>
+          <td>Explain SQL</td>
+          <td>Explain the generated query step by step.</td>
+          <td>The app explains filters, grouping, and selected columns in plain language.</td>
+        </tr>
+        <tr>
+          <td>Chart</td>
+          <td>Create a bar chart from the result grouped by month.</td>
+          <td>The chart uses the NL2SQL result set and can be refined through UI controls or prompts.</td>
+        </tr>
+        <tr>
+          <td>RAG</td>
+          <td>Answer a question that should use indexed documents.</td>
+          <td>The response uses the selected RAG profile and its vector index.</td>
+        </tr>
+        <tr>
+          <td>Agent workflow</td>
+          <td>Ask the selected agent team to perform a simple approved task.</td>
+          <td>The workflow uses the configured agent and tools without exceeding permissions.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      Validate the generated SQL directly when testing NL2SQL. This helps confirm that the profile is using the intended tables, predicates, and aggregation logic.
+    </p>
+
+    <pre><code class="language-sql">-- Use the SQL displayed by Ask Oracle, then validate plan and row counts.
+SELECT /*+ gather_plan_statistics */
+       order_month,
+       order_count
+FROM   (
+  -- Paste generated SQL here after review.
+  SELECT TRUNC(order_date, 'MM') AS order_month,
+         COUNT(*) AS order_count
+  FROM   app.orders
+  WHERE  order_date &gt;= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -6)
+  GROUP  BY TRUNC(order_date, 'MM')
+)
+ORDER  BY order_month;</code></pre>
+
+    <pre><code class="language-sql">-- Display the actual execution plan for the generated SQL.
+SELECT *
+FROM   TABLE(DBMS_XPLAN.DISPLAY_CURSOR(
+         sql_id =&gt; NULL,
+         cursor_child_no =&gt; NULL,
+         format =&gt; 'TYPICAL +IOSTATS LAST'
+       ));</code></pre>
+
+    <h2>Expected results</h2>
+    <ul>
+      <li>The Ask Oracle app imports into APEX and installs supporting objects successfully.</li>
+      <li>Settings show available AI profiles and agent teams for user selection.</li>
+      <li>Chat prompts use the selected LLM profile without requiring SQL knowledge.</li>
+      <li>NL2SQL prompts produce inspectable SQL and database result sets.</li>
+      <li>RAG prompts use profiles with vector indexes when document-grounded answers are required.</li>
+      <li>Charts can be created and refined from NL2SQL result sets.</li>
+      <li>Agent workflows execute only the tools and tasks approved for the selected agent team.</li>
+    </ul>
+
+    <h2>Operational checks</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th>Check</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Security</td>
+          <td>Limit AI profiles to approved schemas, views, and objects.</td>
+          <td>Natural-language access should not expand data access beyond policy.</td>
+        </tr>
+        <tr>
+          <td>Transparency</td>
+          <td>Keep generated SQL visible for NL2SQL results.</td>
+          <td>Users and reviewers need to understand how answers were produced.</td>
+        </tr>
+        <tr>
+          <td>Governance</td>
+          <td>Review prompt details, selected profiles, and selected agents.</td>
+          <td>Prompt-level metadata supports troubleshooting and audit review.</td>
+        </tr>
+        <tr>
+          <td>Performance</td>
+          <td>Review generated SQL with execution plans for expensive questions.</td>
+          <td>Natural-language prompts can still generate SQL that needs tuning.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pager" aria-label="Previous and next">
+    <a href="07-autonomous-database-mcp-server.html">Previous: Autonomous AI Database MCP Server</a>
+    <a href="09-references.html">Next: References</a>
+  </div>
+</div>
+<script src="../assets/copy-code.js"></script>
+</body>
+</html>

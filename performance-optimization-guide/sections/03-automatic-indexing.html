@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Automatic Indexing - Oracle Autonomous Database Performance Optimization Guide</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="../assets/blog.css">
+</head>
+<body>
+<div class="page">
+  <div class="site-header">
+    <div class="eyebrow">Oracle Autonomous Database Performance Optimization Guide</div>
+    <h1>Automatic Indexing</h1>
+    <p class="summary">
+      Automatic Indexing monitors SQL workload, evaluates candidate indexes, validates performance impact, implements useful indexes, and manages automatic index lifecycle.
+    </p>
+  </div>
+
+  <div class="nav-row" aria-label="Section navigation">
+    <a href="../index.html">Guide index</a>
+    <a href="02-automatic-performance-tuning.html">Previous: Automatic Performance Tuning</a>
+    <a href="04-automatic-partitioning.html">Next: Automatic Partitioning</a>
+  </div>
+
+  <div>
+    <h2>What it is</h2>
+    <p>
+      Automatic Indexing automates index management tasks. It observes SQL workload, identifies candidate indexes, validates them, and can create visible automatic indexes when they are expected to improve SQL performance. In Autonomous Database, Automatic Indexing is disabled by default, and Real Application Testing must be enabled before Automatic Indexing can be enabled.
+    </p>
+
+    <div class="infographic" role="img" aria-label="Automatic indexing lifecycle from workload analysis to index lifecycle management">
+      <div class="infographic-title">Automatic Indexing Lifecycle</div>
+      <div class="info-flow">
+        <div class="info-node metric">
+          <strong>Workload</strong>
+          <span>Repeated SQL and predicate patterns are analyzed.</span>
+        </div>
+        <div class="info-node">
+          <strong>Candidate</strong>
+          <span>Potential indexes are created for validation.</span>
+        </div>
+        <div class="info-node decision">
+          <strong>Verify</strong>
+          <span>Performance benefit and regression risk are checked.</span>
+        </div>
+        <div class="info-node">
+          <strong>Implement</strong>
+          <span>Validated indexes can become visible automatic indexes.</span>
+        </div>
+        <div class="info-node metric">
+          <strong>Manage</strong>
+          <span>Retention, disablement, and reporting track usefulness.</span>
+        </div>
+      </div>
+    </div>
+    <p class="infographic-legend">
+      Color guide: blue-accent cards highlight workload or usage telemetry, gray-accent cards highlight validation gates, and plain cards show normal index lifecycle steps.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Stage</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Workload analysis</td>
+          <td>The database observes SQL statements and predicate patterns over time.</td>
+        </tr>
+        <tr>
+          <td>Candidate creation</td>
+          <td>Potential indexes are created and evaluated by the automatic task.</td>
+        </tr>
+        <tr>
+          <td>Validation</td>
+          <td>The database checks whether the candidate improves workload performance without unacceptable regression.</td>
+        </tr>
+        <tr>
+          <td>Lifecycle management</td>
+          <td>Automatic indexes can be retained, disabled, or removed based on continued usefulness and configuration.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Why it matters</h2>
+    <p>
+      Index design is workload-dependent. Too few indexes can force expensive scans, while too many indexes increase DML cost and storage usage. Automatic Indexing is useful when access patterns change over time or when teams want the database to test index candidates against observed workload rather than relying only on manual inspection.
+    </p>
+
+    <h2>Check if enabled</h2>
+    <p>
+      Check the mode first. Then review any automatic indexes and recent reports.
+    </p>
+
+    <pre><code class="language-sql">-- Check Automatic Indexing configuration.
+SELECT parameter_name, parameter_value
+FROM   dba_auto_index_config
+WHERE  parameter_name IN (
+  'AUTO_INDEX_MODE',
+  'AUTO_INDEX_REPORT_RETENTION',
+  'AUTO_INDEX_RETENTION_FOR_AUTO',
+  'AUTO_INDEX_RETENTION_FOR_MANUAL'
+)
+ORDER  BY parameter_name;</code></pre>
+
+    <pre><code class="language-sql">-- List automatically created indexes.
+SELECT owner,
+       index_name,
+       table_name,
+       visibility,
+       status,
+       auto
+FROM   dba_indexes
+WHERE  auto = 'YES'
+ORDER  BY owner, table_name, index_name;</code></pre>
+
+    <p>
+      For a table-level review, include index column order. This helps validate whether automatic or manual indexes align with actual predicates.
+    </p>
+
+    <pre><code class="language-sql">-- Review automatic index columns for one table.
+SELECT i.owner,
+       i.table_name,
+       i.index_name,
+       i.visibility,
+       c.column_position,
+       c.column_name
+FROM   dba_indexes i
+JOIN   dba_ind_columns c
+       ON c.index_owner = i.owner
+      AND c.index_name = i.index_name
+WHERE  i.auto = 'YES'
+AND    i.table_name = 'AI_ORDERS'
+ORDER  BY i.owner, i.index_name, c.column_position;</code></pre>
+
+    <h2>How to enable</h2>
+    <p>
+      Use <code>REPORT ONLY</code> when you want evaluation without implementation. Use <code>IMPLEMENT</code> when you want validated automatic indexes created as visible indexes.
+    </p>
+
+    <pre><code class="language-sql">-- Recommendation mode: analyze and report, but do not implement.
+EXEC DBMS_AUTO_INDEX.CONFIGURE('AUTO_INDEX_MODE', 'REPORT ONLY');</code></pre>
+
+    <pre><code class="language-sql">-- Implementation mode: create validated automatic indexes as visible indexes.
+EXEC DBMS_AUTO_INDEX.CONFIGURE('AUTO_INDEX_MODE', 'IMPLEMENT');</code></pre>
+
+    <pre><code class="language-sql">-- Disable creation of new automatic indexes.
+-- Existing automatic indexes remain enabled.
+EXEC DBMS_AUTO_INDEX.CONFIGURE('AUTO_INDEX_MODE', 'OFF');</code></pre>
+
+    <div class="note">
+      When Automatic Indexing is enabled, index compression for automatic indexes is enabled by default.
+    </div>
+
+    <h2>Test example</h2>
+    <p>
+      Automatic Indexing depends on observed workload and automatic task execution. This example creates a selective workload and then shows how to review results. A recommendation may not appear immediately.
+    </p>
+
+    <pre><code class="language-sql">-- Create a test table with selective customer lookups.
+CREATE TABLE ai_orders AS
+SELECT level AS order_id,
+       MOD(level, 10000) AS customer_id,
+       DATE '2025-01-01' + MOD(level, 365) AS order_date,
+       RPAD('x', 100, 'x') AS padding
+FROM   dual
+CONNECT BY level &lt;= 500000;</code></pre>
+
+    <pre><code class="language-sql">-- Gather optimizer statistics for the test table.
+BEGIN
+  DBMS_STATS.GATHER_TABLE_STATS(
+    ownname          =&gt; USER,
+    tabname          =&gt; 'AI_ORDERS',
+    estimate_percent =&gt; DBMS_STATS.AUTO_SAMPLE_SIZE,
+    method_opt       =&gt; 'FOR ALL COLUMNS SIZE AUTO',
+    cascade          =&gt; TRUE
+  );
+END;
+/</code></pre>
+
+    <pre><code class="language-sql">-- Generate repeated selective workload.
+DECLARE
+  l_count NUMBER;
+BEGIN
+  FOR i IN 1..200 LOOP
+    EXECUTE IMMEDIATE
+      'SELECT COUNT(*) FROM ai_orders WHERE customer_id = :b1'
+      INTO l_count
+      USING MOD(i, 10000);
+  END LOOP;
+END;
+/</code></pre>
+
+    <pre><code class="language-sql">-- Set SQL client display length for the Automatic Indexing report.
+SET LONG 100000</code></pre>
+
+    <pre><code class="language-sql">-- Review the most recent Automatic Indexing activity.
+SELECT DBMS_AUTO_INDEX.REPORT_LAST_ACTIVITY(
+         type    =&gt; 'TEXT',
+         section =&gt; 'SUMMARY+INDEX_DETAILS+VERIFICATION_DETAILS+ERRORS',
+         level   =&gt; 'TYPICAL'
+       ) AS report
+FROM   dual;</code></pre>
+
+    <p>
+      Validate whether a new automatic index is used by checking the actual execution plan and comparing logical I/O before and after the index appears.
+    </p>
+
+    <pre><code class="language-sql">-- Run the validation query with row-source statistics.
+SELECT /*+ gather_plan_statistics */
+       COUNT(*) AS order_count
+FROM   ai_orders
+WHERE  customer_id = 42;</code></pre>
+
+    <pre><code class="language-sql">-- Display the actual execution plan for the last statement.
+SELECT *
+FROM   TABLE(DBMS_XPLAN.DISPLAY_CURSOR(
+         sql_id =&gt; NULL,
+         cursor_child_no =&gt; NULL,
+         format =&gt; 'TYPICAL +IOSTATS LAST'
+       ));</code></pre>
+
+    <pre><code class="language-sql">-- Check automatic index status for the test table.
+SELECT owner,
+       index_name,
+       table_name,
+       visibility,
+       status,
+       auto
+FROM   dba_indexes
+WHERE  auto = 'YES'
+AND    table_name = 'AI_ORDERS';</code></pre>
+
+    <h2>Expected results</h2>
+    <ul>
+      <li><code>REPORT ONLY</code> mode can show recommendations and verification details without creating visible indexes.</li>
+      <li><code>IMPLEMENT</code> mode can create validated indexes with <code>AUTO = YES</code>.</li>
+      <li>Useful automatic indexes should appear in execution plans as index range scans, index fast full scans, or other index access paths when the optimizer chooses them.</li>
+      <li>If no automatic index appears, the workload may be too small, not selective enough, not repeated enough, or not beneficial after validation.</li>
+      <li>Compare buffer gets and elapsed time per execution instead of assuming that every index improves every query.</li>
+    </ul>
+  </div>
+
+  <div class="pager" aria-label="Previous and next">
+    <a href="02-automatic-performance-tuning.html">Previous: Automatic Performance Tuning</a>
+    <a href="04-automatic-partitioning.html">Next: Automatic Partitioning</a>
+  </div>
+</div>
+<script src="../assets/copy-code.js"></script>
+</body>
+</html>
