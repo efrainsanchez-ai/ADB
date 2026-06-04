@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Automatic Partitioning - Oracle Autonomous Database Performance Optimization Guide</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="../assets/blog.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="page" id="main" role="main">
+  <div class="site-header">
+    <div class="eyebrow">Oracle Autonomous Database Performance Optimization Guide</div>
+    <h1>Automatic Partitioning</h1>
+    <p class="summary">
+      Automatic Partitioning analyzes workload and large-table candidates, recommends a partitioning method, and can apply accepted recommendations through the <code>DBMS_AUTO_PARTITION</code> API.
+    </p>
+  </div>
+
+  <div class="nav-row" aria-label="Section navigation">
+    <a href="../index.html">Guide index</a>
+    <a href="02-automatic-indexing.html">Previous: Automatic Indexing</a>
+    <a href="04-compression.html">Next: Compression</a>
+  </div>
+
+  <div>
+    <h2>What it is</h2>
+    <p>
+      Automatic Partitioning analyzes application workload and table metadata to identify large tables that may benefit from partitioning. It uses a single-column partition key with single-level partitioning and can recommend automatic interval, automatic list, or hash partitioning. It does not run as a periodic background task. It runs only when invoked with <code>DBMS_AUTO_PARTITION.RECOMMEND_PARTITION_METHOD</code>.
+    </p>
+
+    <div class="infographic" role="img" aria-label="Automatic partitioning flow showing candidate analysis, partition key selection, pruning, and reduced IO">
+      <div class="infographic-title">Partitioning Decision Path</div>
+      <div class="info-flow">
+        <div class="info-node metric">
+          <strong>Large Table</strong>
+          <span>Object size, statistics, and workload history are reviewed.</span>
+        </div>
+        <div class="info-node">
+          <strong>Partition Key</strong>
+          <span>One useful column is selected from workload predicates.</span>
+        </div>
+        <div class="info-node">
+          <strong>Method</strong>
+          <span>Interval, list, or hash partitioning is recommended.</span>
+        </div>
+        <div class="info-node decision">
+          <strong>Pruning</strong>
+          <span>Queries scan only relevant partitions when predicates match.</span>
+        </div>
+      </div>
+      <div class="info-strip">
+        <div class="info-pill">Fewer scanned blocks</div>
+        <div class="info-pill">Smaller maintenance units</div>
+        <div class="info-pill">Plan validation with PSTART/PSTOP</div>
+      </div>
+    </div>
+    <p class="infographic-legend">
+      Color guide: blue-accent cards highlight candidate inputs or workload signals, gray-accent cards highlight pruning validation, and plain cards show normal partitioning steps.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Method</th>
+          <th>Common fit</th>
+          <th>Performance reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Automatic interval</td>
+          <td>Date, timestamp, or numeric range data.</td>
+          <td>Range predicates can prune partitions and reduce scan scope.</td>
+        </tr>
+        <tr>
+          <td>Automatic list</td>
+          <td>Distinct categories such as region, status, or business unit.</td>
+          <td>Equality predicates can prune partitions by list value.</td>
+        </tr>
+        <tr>
+          <td>Hash</td>
+          <td>Large tables without a natural range or list boundary.</td>
+          <td>Rows are distributed across partitions to support parallel access and manageability.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Why it matters</h2>
+    <p>
+      Partitioning can reduce I/O for large-table queries through partition pruning. It also improves manageability because data is organized into smaller physical segments. The benefit depends on workload predicates and table size. A partition key that is rarely used in filters will not provide useful pruning.
+    </p>
+
+    <h2>Check if enabled</h2>
+    <p>
+      Review configuration, candidate validity, and prior recommendations. Candidate validation is important because Automatic Partitioning has eligibility requirements, including object type, statistics, workload history, and table size.
+    </p>
+
+    <pre><code class="language-sql">-- Check Automatic Partitioning configuration.
+SELECT parameter_name,
+       parameter_value,
+       allow
+FROM   dba_auto_partition_config
+ORDER  BY parameter_name, parameter_value;</code></pre>
+
+    <pre><code class="language-sql">-- Validate whether one table is a candidate.
+SELECT DBMS_AUTO_PARTITION.VALIDATE_CANDIDATE_TABLE(
+         table_owner =&gt; USER,
+         table_name  =&gt; 'LINEITEM'
+       ) AS candidate_status
+FROM   dual;</code></pre>
+
+    <pre><code class="language-sql">-- Review recent recommendations.
+SELECT recommendation_id,
+       table_owner,
+       table_name,
+       partition_method,
+       partition_key,
+       apply_timestamp_start,
+       apply_timestamp_end
+FROM   dba_auto_partition_recommendations
+ORDER  BY apply_timestamp_start DESC NULLS LAST;</code></pre>
+
+    <h2>How to enable</h2>
+    <p>
+      Use <code>REPORT ONLY</code> to generate recommendations without changing tables. Use <code>IMPLEMENT</code> when recommendations should be applied as part of the Automatic Partitioning run. For production environments, run analysis on a clone when possible because recommendation and verification can be resource-intensive.
+    </p>
+
+    <pre><code class="language-sql">-- Generate recommendations only.
+BEGIN
+  DBMS_AUTO_PARTITION.CONFIGURE(
+    parameter_name  =&gt; 'AUTO_PARTITION_MODE',
+    parameter_value =&gt; 'REPORT ONLY'
+  );
+END;
+/</code></pre>
+
+    <pre><code class="language-sql">-- Generate and implement accepted recommendations.
+BEGIN
+  DBMS_AUTO_PARTITION.CONFIGURE(
+    parameter_name  =&gt; 'AUTO_PARTITION_MODE',
+    parameter_value =&gt; 'IMPLEMENT'
+  );
+END;
+/</code></pre>
+
+    <pre><code class="language-sql">-- Limit analysis to one schema.
+BEGIN
+  DBMS_AUTO_PARTITION.CONFIGURE(
+    parameter_name  =&gt; 'AUTO_PARTITION_SCHEMA',
+    parameter_value =&gt; USER,
+    allow           =&gt; TRUE
+  );
+END;
+/</code></pre>
+
+    <pre><code class="language-sql">-- Disable new recommendations and implementation.
+-- Existing automatically partitioned tables are not disabled.
+BEGIN
+  DBMS_AUTO_PARTITION.CONFIGURE(
+    parameter_name  =&gt; 'AUTO_PARTITION_MODE',
+    parameter_value =&gt; 'OFF'
+  );
+END;
+/</code></pre>
+
+    <h2>Test example</h2>
+    <p>
+      This example generates a recommendation for one table, reviews the recommendation, applies it after review, and validates partition metadata. Replace <code>LINEITEM</code> with an eligible large table in your schema.
+    </p>
+
+    <pre><code class="language-sql">-- Define a SQL client variable for the recommendation identifier.
+VARIABLE recommendation_id VARCHAR2(32)</code></pre>
+
+    <pre><code class="language-sql">-- Generate a recommendation for a specific table.
+BEGIN
+  :recommendation_id := DBMS_AUTO_PARTITION.RECOMMEND_PARTITION_METHOD(
+                          table_owner =&gt; USER,
+                          table_name  =&gt; 'LINEITEM'
+                        );
+END;
+/</code></pre>
+
+    <pre><code class="language-sql">-- Review the recommendation and generated report.
+SELECT table_owner,
+       table_name,
+       partition_method,
+       partition_key,
+       report
+FROM   dba_auto_partition_recommendations
+WHERE  recommendation_id = :recommendation_id;</code></pre>
+
+    <pre><code class="language-sql">-- Apply the recommendation after review.
+BEGIN
+  DBMS_AUTO_PARTITION.APPLY_RECOMMENDATION(
+    recommendation_id =&gt; :recommendation_id,
+    table_owner       =&gt; USER,
+    table_name        =&gt; 'LINEITEM'
+  );
+END;
+/</code></pre>
+
+    <pre><code class="language-sql">-- Confirm partitioning metadata.
+SELECT t.owner,
+       t.table_name,
+       t.auto,
+       t.partitioning_type,
+       c.column_name
+FROM   dba_part_tables t
+JOIN   dba_part_key_columns c
+       ON c.owner = t.owner
+      AND c.name = t.table_name
+WHERE  t.owner = USER
+AND    t.table_name = 'LINEITEM';</code></pre>
+
+    <p>
+      Validate partition pruning with a predicate on the partition key. Use the actual partition key from the recommendation.
+    </p>
+
+    <pre><code class="language-sql">-- Generate an estimated plan for a partition-key predicate.
+EXPLAIN PLAN FOR
+SELECT COUNT(*)
+FROM   lineitem
+WHERE  ship_date &gt;= DATE '2025-01-01'
+AND    ship_date &lt;  DATE '2025-02-01';</code></pre>
+
+    <pre><code class="language-sql">-- Display partition pruning details from the estimated plan.
+SELECT *
+FROM   TABLE(DBMS_XPLAN.DISPLAY(
+         table_name =&gt; NULL,
+         statement_id =&gt; NULL,
+         format =&gt; 'BASIC +PARTITION'
+       ));</code></pre>
+
+    <h2>Expected results</h2>
+    <ul>
+      <li>Eligible tables should return <code>VALID</code> from <code>VALIDATE_CANDIDATE_TABLE</code>.</li>
+      <li>Recommendations should identify a partition method and partition key only when the workload is expected to benefit.</li>
+      <li>After applying a recommendation, <code>DBA_PART_TABLES</code> should show the table as partitioned and identify the partitioning type.</li>
+      <li>Plans for partition-key predicates should show partition pruning through narrowed <code>PSTART</code> and <code>PSTOP</code> values.</li>
+      <li>If no recommendation is returned, the table may be too small, already manually partitioned, missing required workload history, or not beneficial after verification.</li>
+    </ul>
+  </div>
+
+  <div class="pager" aria-label="Previous and next">
+    <a href="02-automatic-indexing.html">Previous: Automatic Indexing</a>
+    <a href="04-compression.html">Next: Compression</a>
+  </div>
+</div>
+<script src="../assets/copy-code.js"></script>
+</body>
+</html>
