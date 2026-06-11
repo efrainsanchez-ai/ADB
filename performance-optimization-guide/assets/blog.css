@@ -125,7 +125,7 @@ h1 {
   margin: 16px 0 0;
   font-size: var(--font-h1);
   font-weight: 850;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 h2 {
@@ -348,66 +348,135 @@ samp {
   color: var(--oracle-deep);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.9em;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
-.code-copy-shell {
-  position: relative;
+.code-card {
+  overflow: hidden;
   margin: 18px 0 26px;
+  border: 1px solid rgba(120, 113, 108, 0.35);
+  border-radius: 8px;
+  background: #171412;
+  color: #f5f5f4;
+  box-shadow: 0 16px 38px rgba(23, 20, 18, 0.18);
+}
+
+.code-bash {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: #111917;
+}
+
+.code-sql {
+  border-color: rgba(14, 165, 233, 0.35);
+  background: #101922;
+}
+
+.code-java {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: #17130d;
+}
+
+.code-text,
+.code-diagram {
+  border-color: rgba(120, 113, 108, 0.35);
+  background: #171412;
+}
+
+.code-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.code-toolbar span {
+  color: #f5f5f4;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.copy-btn {
+  min-width: 68px;
+  min-height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  cursor: pointer;
+  font: 600 0.75rem/1 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.copy-btn:hover,
+.copy-btn:focus {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.copy-btn.is-copied {
+  border-color: rgba(167, 243, 208, 0.7);
+  color: #a7f3d0;
+}
+
+.code-description {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e7e5e4;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.5rem;
 }
 
 pre {
   overflow-x: auto;
   margin: 18px 0 26px;
-  padding: 48px 18px 18px;
+  padding: 1rem;
   border: 1px solid var(--code-border);
-  border-radius: 10px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 42px),
-    var(--code-bg);
-  color: var(--code-text);
-  box-shadow: 0 16px 38px rgba(23, 20, 18, 0.18);
+  border-radius: 8px;
+  background: var(--code-bg);
+  color: #f5f5f4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 24px;
+  white-space: pre;
+  -webkit-font-smoothing: antialiased;
 }
 
-pre::before {
-  content: "";
-  position: absolute;
+.code-card pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 pre code {
   padding: 0;
   background: transparent;
   color: inherit;
-  font-size: var(--font-code);
-  line-height: 1.65;
+  font: inherit;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
-.code-copy-shell pre {
-  margin: 0;
+.code-card pre::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
 }
 
-.copy-code-button {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  min-width: 70px;
-  min-height: 34px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-  cursor: pointer;
-  font: 850 0.76rem/1 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+.code-card pre::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.copy-code-button:hover,
-.copy-code-button:focus {
-  border-color: rgba(255, 255, 255, 0.55);
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.copy-code-button.is-copied {
-  border-color: #9be0b6;
-  color: #bff0ce;
+.code-card pre::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .note,
@@ -616,13 +685,13 @@ li + li {
     grid-template-columns: 1fr;
   }
 
-  pre {
-    padding-top: 58px;
+  .code-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
-  .copy-code-button {
-    left: 10px;
-    right: auto;
+  .copy-btn {
+    width: 100%;
   }
 
   .pager {

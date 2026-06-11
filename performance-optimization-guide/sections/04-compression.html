@@ -19,6 +19,10 @@
 
   <div class="nav-row" aria-label="Section navigation">
     <a href="../index.html">Guide index</a>
+    <a href="../../index.html">Series home</a>
+    <a href="../../index.html#documentation">Series documentation</a>
+    <a href="../../index.html#glossary">Series glossary</a>
+    <a href="../../NewFeatures/index.html">Related: new features guide</a>
     <a href="03-automatic-partitioning.html">Previous: Automatic Partitioning</a>
     <a href="05-references.html">Next: References</a>
   </div>
@@ -103,7 +107,14 @@
       Check table compression attributes and current segment size before changing anything. Use segment size as a practical baseline.
     </p>
 
-    <pre><code class="language-sql">-- Check table compression settings.
+    <pre data-objective="Check table compression settings"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN table_name FORMAT A32
+COLUMN compression FORMAT A12
+COLUMN compress_for FORMAT A30
+
 SELECT table_name,
        compression,
        compress_for
@@ -111,7 +122,13 @@ FROM   user_tables
 WHERE  table_name IN ('SALES', 'SALES_COMP_TEST')
 ORDER  BY table_name;</code></pre>
 
-    <pre><code class="language-sql">-- Check current segment size.
+    <pre data-objective="Check current segment size"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN segment_name FORMAT A36
+COLUMN segment_type FORMAT A18
+
 SELECT segment_name,
        segment_type,
        ROUND(bytes / POWER(1024, 2), 2) AS size_mb
@@ -123,7 +140,17 @@ ORDER  BY segment_name, segment_type;</code></pre>
       For larger schemas, rank tables by segment size and current compression status.
     </p>
 
-    <pre><code class="language-sql">-- Largest tables and compression status in the current schema.
+    <pre data-objective="Largest tables and compression status in the current schema"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN table_name FORMAT A32
+COLUMN last_analyzed FORMAT A22
+COLUMN segment_name FORMAT A36
+COLUMN segment_type FORMAT A18
+COLUMN compression FORMAT A12
+COLUMN compress_for FORMAT A30
+
 SELECT s.segment_name AS table_name,
        ROUND(s.bytes / POWER(1024, 3), 2) AS size_gb,
        t.compression,
@@ -142,13 +169,25 @@ FETCH FIRST 20 ROWS ONLY;</code></pre>
       Use compression that matches the workload. For analytic tables loaded in bulk, column-store query compression is commonly appropriate. For transactional or frequently updated tables, test row-store compression or no compression.
     </p>
 
-    <pre><code class="language-sql">-- Analytics or bulk-load table: compress existing data with Hybrid Columnar Compression.
+    <pre data-objective="Analytics or bulk-load table: compress existing data with Hybrid Columnar Compression"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 ALTER TABLE sales MOVE COLUMN STORE COMPRESS FOR QUERY HIGH;</code></pre>
 
-    <pre><code class="language-sql">-- Mixed workload option: use row-store advanced compression after testing.
+    <pre data-objective="Mixed workload option: use row-store advanced compression after testing"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 ALTER TABLE sales MOVE ROW STORE COMPRESS ADVANCED;</code></pre>
 
-    <pre><code class="language-sql">-- Disable compression for future table movement.
+    <pre data-objective="Disable compression for future table movement"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 ALTER TABLE sales MOVE NOCOMPRESS;</code></pre>
 
     <div class="caution">
@@ -160,7 +199,11 @@ ALTER TABLE sales MOVE NOCOMPRESS;</code></pre>
       This example creates compressible data, records the segment size, compresses the table, and compares the resulting size and query plan statistics.
     </p>
 
-    <pre><code class="language-sql">-- Create test data with repeated values.
+    <pre data-objective="Create test data with repeated values"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 CREATE TABLE sales_comp_test AS
 SELECT level AS sale_id,
        MOD(level, 100) AS product_id,
@@ -170,7 +213,12 @@ SELECT level AS sale_id,
 FROM   dual
 CONNECT BY level &lt;= 500000;</code></pre>
 
-    <pre><code class="language-sql">-- Gather optimizer statistics before the baseline size check.
+    <pre data-objective="Gather optimizer statistics before the baseline size check"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET SERVEROUTPUT ON
+
 BEGIN
   DBMS_STATS.GATHER_TABLE_STATS(
     ownname          =&gt; USER,
@@ -182,27 +230,53 @@ BEGIN
 END;
 /</code></pre>
 
-    <pre><code class="language-sql">-- Size before compression.
+    <pre data-objective="Size before compression"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN segment_name FORMAT A36
+
 SELECT segment_name,
        ROUND(bytes / POWER(1024, 2), 2) AS size_mb
 FROM   user_segments
 WHERE  segment_name = 'SALES_COMP_TEST';</code></pre>
 
-    <pre><code class="language-sql">-- Compress existing data.
+    <pre data-objective="Compress existing data"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 ALTER TABLE sales_comp_test MOVE COLUMN STORE COMPRESS FOR QUERY HIGH;</code></pre>
 
-    <pre><code class="language-sql">-- Regather statistics after the table move.
+    <pre data-objective="Regather statistics after the table move"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET SERVEROUTPUT ON
+
 BEGIN
   DBMS_STATS.GATHER_TABLE_STATS(USER, 'SALES_COMP_TEST');
 END;
 /</code></pre>
 
-    <pre><code class="language-sql">-- Confirm compression setting after compression.
+    <pre data-objective="Confirm compression setting after compression"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN table_name FORMAT A32
+COLUMN compression FORMAT A12
+COLUMN compress_for FORMAT A30
+
 SELECT table_name, compression, compress_for
 FROM   user_tables
 WHERE  table_name = 'SALES_COMP_TEST';</code></pre>
 
-    <pre><code class="language-sql">-- Check size after compression.
+    <pre data-objective="Check size after compression"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN segment_name FORMAT A36
+
 SELECT segment_name,
        ROUND(bytes / POWER(1024, 2), 2) AS size_mb
 FROM   user_segments
@@ -212,7 +286,11 @@ WHERE  segment_name = 'SALES_COMP_TEST';</code></pre>
       Validate query behavior by comparing logical and physical I/O before and after compression.
     </p>
 
-    <pre><code class="language-sql">-- Run the validation query with row-source statistics.
+    <pre data-objective="Run the validation query with row-source statistics"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 SELECT /*+ gather_plan_statistics */
        product_id,
        COUNT(*) AS sales_count,
@@ -222,7 +300,14 @@ WHERE  sale_date &gt;= DATE '2025-06-01'
 AND    sale_date &lt;  DATE '2025-07-01'
 GROUP  BY product_id;</code></pre>
 
-    <pre><code class="language-sql">-- Display the actual execution plan for the last statement.
+    <pre data-objective="Display the actual execution plan for the last statement"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET LONG 100000
+SET LONGCHUNKSIZE 100000
+COLUMN sql_id FORMAT A15
+
 SELECT *
 FROM   TABLE(DBMS_XPLAN.DISPLAY_CURSOR(
          sql_id =&gt; NULL,

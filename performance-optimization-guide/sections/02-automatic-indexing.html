@@ -19,6 +19,10 @@
 
   <div class="nav-row" aria-label="Section navigation">
     <a href="../index.html">Guide index</a>
+    <a href="../../index.html">Series home</a>
+    <a href="../../index.html#documentation">Series documentation</a>
+    <a href="../../index.html#glossary">Series glossary</a>
+    <a href="../../NewFeatures/index.html">Related: new features guide</a>
     <a href="01-automatic-performance-tuning.html">Previous: Automatic Performance Tuning</a>
     <a href="03-automatic-partitioning.html">Next: Automatic Partitioning</a>
   </div>
@@ -95,7 +99,15 @@
       Check the mode first. Then review any automatic indexes and recent reports.
     </p>
 
-    <pre><code class="language-sql">-- Check Automatic Indexing configuration.
+    <pre data-objective="Check Automatic Indexing configuration"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET LONG 100000
+SET LONGCHUNKSIZE 100000
+COLUMN parameter_name FORMAT A40
+COLUMN parameter_value FORMAT A30
+
 SELECT parameter_name, parameter_value
 FROM   dba_auto_index_config
 WHERE  parameter_name IN (
@@ -106,7 +118,14 @@ WHERE  parameter_name IN (
 )
 ORDER  BY parameter_name;</code></pre>
 
-    <pre><code class="language-sql">-- List automatically created indexes.
+    <pre data-objective="List automatically created indexes"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN status FORMAT A18
+COLUMN table_name FORMAT A32
+COLUMN owner FORMAT A24
+
 SELECT owner,
        index_name,
        table_name,
@@ -121,7 +140,13 @@ ORDER  BY owner, table_name, index_name;</code></pre>
       For a table-level review, include index column order. This helps validate whether automatic or manual indexes align with actual predicates.
     </p>
 
-    <pre><code class="language-sql">-- Review automatic index columns for one table.
+    <pre data-objective="Review automatic index columns for one table"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN table_name FORMAT A32
+COLUMN owner FORMAT A24
+
 SELECT i.owner,
        i.table_name,
        i.index_name,
@@ -141,14 +166,25 @@ ORDER  BY i.owner, i.index_name, c.column_position;</code></pre>
       Use <code>REPORT ONLY</code> when you want evaluation without implementation. Use <code>IMPLEMENT</code> when you want validated automatic indexes created as visible indexes.
     </p>
 
-    <pre><code class="language-sql">-- Recommendation mode: analyze and report, but do not implement.
+    <pre data-objective="Recommendation mode: analyze and report, but do not implement"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 EXEC DBMS_AUTO_INDEX.CONFIGURE('AUTO_INDEX_MODE', 'REPORT ONLY');</code></pre>
 
-    <pre><code class="language-sql">-- Implementation mode: create validated automatic indexes as visible indexes.
+    <pre data-objective="Implementation mode: create validated automatic indexes as visible indexes"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 EXEC DBMS_AUTO_INDEX.CONFIGURE('AUTO_INDEX_MODE', 'IMPLEMENT');</code></pre>
 
-    <pre><code class="language-sql">-- Disable creation of new automatic indexes.
--- Existing automatic indexes remain enabled.
+    <pre data-objective="Disable creation of new automatic indexes. Existing automatic indexes remain enabled"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 EXEC DBMS_AUTO_INDEX.CONFIGURE('AUTO_INDEX_MODE', 'OFF');</code></pre>
 
     <div class="note">
@@ -160,7 +196,11 @@ EXEC DBMS_AUTO_INDEX.CONFIGURE('AUTO_INDEX_MODE', 'OFF');</code></pre>
       Automatic Indexing depends on observed workload and automatic task execution. This example creates a selective workload and then shows how to review results. A recommendation may not appear immediately.
     </p>
 
-    <pre><code class="language-sql">-- Create a test table with selective customer lookups.
+    <pre data-objective="Create a test table with selective customer lookups"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 CREATE TABLE ai_orders AS
 SELECT level AS order_id,
        MOD(level, 10000) AS customer_id,
@@ -169,7 +209,12 @@ SELECT level AS order_id,
 FROM   dual
 CONNECT BY level &lt;= 500000;</code></pre>
 
-    <pre><code class="language-sql">-- Gather optimizer statistics for the test table.
+    <pre data-objective="Gather optimizer statistics for the test table"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET SERVEROUTPUT ON
+
 BEGIN
   DBMS_STATS.GATHER_TABLE_STATS(
     ownname          =&gt; USER,
@@ -181,7 +226,12 @@ BEGIN
 END;
 /</code></pre>
 
-    <pre><code class="language-sql">-- Generate repeated selective workload.
+    <pre data-objective="Generate repeated selective workload"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET SERVEROUTPUT ON
+
 DECLARE
   l_count NUMBER;
 BEGIN
@@ -194,10 +244,14 @@ BEGIN
 END;
 /</code></pre>
 
-    <pre><code class="language-sql">-- Set SQL client display length for the Automatic Indexing report.
-SET LONG 100000</code></pre>
 
-    <pre><code class="language-sql">-- Review the most recent Automatic Indexing activity.
+    <pre data-objective="Review the most recent Automatic Indexing activity"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET LONG 100000
+SET LONGCHUNKSIZE 100000
+
 SELECT DBMS_AUTO_INDEX.REPORT_LAST_ACTIVITY(
          type    =&gt; 'TEXT',
          section =&gt; 'SUMMARY+INDEX_DETAILS+VERIFICATION_DETAILS+ERRORS',
@@ -209,13 +263,24 @@ FROM   dual;</code></pre>
       Validate whether a new automatic index is used by checking the actual execution plan and comparing logical I/O before and after the index appears.
     </p>
 
-    <pre><code class="language-sql">-- Run the validation query with row-source statistics.
+    <pre data-objective="Run the validation query with row-source statistics"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 SELECT /*+ gather_plan_statistics */
        COUNT(*) AS order_count
 FROM   ai_orders
 WHERE  customer_id = 42;</code></pre>
 
-    <pre><code class="language-sql">-- Display the actual execution plan for the last statement.
+    <pre data-objective="Display the actual execution plan for the last statement"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET LONG 100000
+SET LONGCHUNKSIZE 100000
+COLUMN sql_id FORMAT A15
+
 SELECT *
 FROM   TABLE(DBMS_XPLAN.DISPLAY_CURSOR(
          sql_id =&gt; NULL,
@@ -223,7 +288,14 @@ FROM   TABLE(DBMS_XPLAN.DISPLAY_CURSOR(
          format =&gt; 'TYPICAL +IOSTATS LAST'
        ));</code></pre>
 
-    <pre><code class="language-sql">-- Check automatic index status for the test table.
+    <pre data-objective="Check automatic index status for the test table"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN status FORMAT A18
+COLUMN table_name FORMAT A32
+COLUMN owner FORMAT A24
+
 SELECT owner,
        index_name,
        table_name,

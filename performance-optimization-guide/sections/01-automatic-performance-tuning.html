@@ -19,6 +19,10 @@
 
   <div class="nav-row" aria-label="Section navigation">
     <a href="../index.html">Guide index</a>
+    <a href="../../index.html">Series home</a>
+    <a href="../../index.html#documentation">Series documentation</a>
+    <a href="../../index.html#glossary">Series glossary</a>
+    <a href="../../NewFeatures/index.html">Related: new features guide</a>
     <a href="02-automatic-indexing.html">Next: Automatic Indexing</a>
   </div>
 
@@ -99,12 +103,26 @@
       Start with optimizer statistics and SQL Plan Management. These queries are intentionally read-only. Use <code>DBA_</code> views when you have the privileges; otherwise use matching <code>USER_</code> views where possible.
     </p>
 
-    <pre><code class="language-sql">-- Check automatic optimizer statistics collection.
+    <pre data-objective="Check automatic optimizer statistics collection"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN client_name FORMAT A38
+COLUMN status FORMAT A18
+
 SELECT client_name, status
 FROM   dba_autotask_client
 WHERE  client_name = 'auto optimizer stats collection';</code></pre>
 
-    <pre><code class="language-sql">-- Find stale or missing table statistics in the current schema.
+    <pre data-objective="Find stale or missing table statistics in the current schema"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN table_name FORMAT A32
+COLUMN object_type FORMAT A16
+COLUMN last_analyzed FORMAT A22
+COLUMN stale_stats FORMAT A12
+
 SELECT table_name,
        num_rows,
        blocks,
@@ -115,7 +133,13 @@ WHERE  object_type = 'TABLE'
 AND    (last_analyzed IS NULL OR stale_stats = 'YES')
 ORDER  BY last_analyzed NULLS FIRST;</code></pre>
 
-    <pre><code class="language-sql">-- Check real-time SQL Plan Management mode.
+    <pre data-objective="Check real-time SQL Plan Management mode"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN parameter_name FORMAT A40
+COLUMN parameter_value FORMAT A30
+
 SELECT parameter_name, parameter_value
 FROM   dba_sql_management_config
 WHERE  parameter_name = 'AUTO_SPM_EVOLVE_TASK';</code></pre>
@@ -124,7 +148,19 @@ WHERE  parameter_name = 'AUTO_SPM_EVOLVE_TASK';</code></pre>
       For SQL plan review, inspect the baseline attributes before approving, fixing, disabling, or dropping any plan. The key columns are <code>ACCEPTED</code>, <code>ENABLED</code>, <code>FIXED</code>, <code>REPRODUCED</code>, and <code>AUTOPURGE</code>.
     </p>
 
-    <pre><code class="language-sql">-- Review recent SQL plan baselines and their approval status.
+    <pre data-objective="Review recent SQL plan baselines and their approval status"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN sql_handle FORMAT A32
+COLUMN plan_name FORMAT A32
+COLUMN enabled FORMAT A8
+COLUMN accepted FORMAT A8
+COLUMN fixed FORMAT A8
+COLUMN reproduced FORMAT A10
+COLUMN autopurge FORMAT A10
+COLUMN origin FORMAT A22
+
 SELECT sql_handle,
        plan_name,
        enabled,
@@ -139,7 +175,15 @@ FROM   dba_sql_plan_baselines
 ORDER  BY last_modified DESC
 FETCH FIRST 30 ROWS ONLY;</code></pre>
 
-    <pre><code class="language-sql">-- Display one baseline plan before approving or disabling it.
+    <pre data-objective="Display one baseline plan before approving or disabling it"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET LONG 100000
+SET LONGCHUNKSIZE 100000
+COLUMN sql_handle FORMAT A32
+COLUMN plan_name FORMAT A32
+
 SELECT *
 FROM   TABLE(DBMS_XPLAN.DISPLAY_SQL_PLAN_BASELINE(
          sql_handle =&gt; '&lt;sql_handle&gt;',
@@ -151,7 +195,13 @@ FROM   TABLE(DBMS_XPLAN.DISPLAY_SQL_PLAN_BASELINE(
       Then check current workload pressure. High average active sessions with high CPU points to CPU saturation. High active sessions with a dominant wait class points to a wait bottleneck.
     </p>
 
-    <pre><code class="language-sql">-- Current system-level workload indicators.
+    <pre data-objective="Current system-level workload indicators"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN metric_name FORMAT A42
+COLUMN metric_unit FORMAT A28
+
 SELECT metric_name, value, metric_unit
 FROM   v$sysmetric
 WHERE  metric_name IN (
@@ -162,7 +212,13 @@ WHERE  metric_name IN (
 )
 ORDER BY metric_name;</code></pre>
 
-    <pre><code class="language-sql">-- Current sessions by service and consumer group.
+    <pre data-objective="Current sessions by service and consumer group"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN service_name FORMAT A30
+COLUMN consumer_group FORMAT A30
+
 SELECT service_name,
        resource_consumer_group,
        COUNT(*) AS sessions
@@ -176,7 +232,12 @@ ORDER  BY sessions DESC;</code></pre>
       Automatic statistics gathering is enabled for Autonomous Database. For tables that have just received large conventional DML changes, gather stale statistics explicitly. For SQL Plan Management, choose the automatic SPM mode that matches the review model for the workload.
     </p>
 
-    <pre><code class="language-sql">-- Gather stale statistics for the current schema.
+    <pre data-objective="Gather stale statistics for the current schema"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET SERVEROUTPUT ON
+
 BEGIN
   DBMS_STATS.GATHER_SCHEMA_STATS(
     ownname          =&gt; USER,
@@ -188,13 +249,25 @@ BEGIN
 END;
 /</code></pre>
 
-    <pre><code class="language-sql">-- Enable real-time automatic SPM.
+    <pre data-objective="Enable real-time automatic SPM"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 EXEC DBMS_SPM.CONFIGURE('AUTO_SPM_EVOLVE_TASK', 'AUTO');</code></pre>
 
-    <pre><code class="language-sql">-- Alternative: enable background-verified automatic SPM.
+    <pre data-objective="Alternative: enable background-verified automatic SPM"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 EXEC DBMS_SPM.CONFIGURE('AUTO_SPM_EVOLVE_TASK', 'ON');</code></pre>
 
-    <pre><code class="language-sql">-- Optional controlled window: disable automatic SPM evolution.
+    <pre data-objective="Optional controlled window: disable automatic SPM evolution"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 EXEC DBMS_SPM.CONFIGURE('AUTO_SPM_EVOLVE_TASK', 'OFF');</code></pre>
 
     <h3>SQL Plan review and approval options</h3>
@@ -268,7 +341,12 @@ EXEC DBMS_SPM.CONFIGURE('AUTO_SPM_EVOLVE_TASK', 'OFF');</code></pre>
       For the automatic SPM Evolve Advisor task, DBAs with the required privileges can control whether recommended plans are accepted automatically. Set <code>ACCEPT_PLANS</code> to <code>false</code> for report-first review, then inspect the automatic evolve report before taking manual action.
     </p>
 
-    <pre><code class="language-sql">-- Configure the automatic evolve task for DBA review before acceptance.
+    <pre data-objective="Configure the automatic evolve task for DBA review before acceptance"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET SERVEROUTPUT ON
+
 BEGIN
   DBMS_SPM.SET_EVOLVE_TASK_PARAMETER(
     task_name =&gt; 'SYS_AUTO_SPM_EVOLVE_TASK',
@@ -278,16 +356,26 @@ BEGIN
 END;
 /</code></pre>
 
-    <pre><code class="language-sql">-- Confirm the review setting.
+    <pre data-objective="Confirm the review setting"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN parameter_name FORMAT A40
+COLUMN parameter_value FORMAT A30
+
 SELECT parameter_name, parameter_value
 FROM   dba_advisor_parameters
 WHERE  task_name = 'SYS_AUTO_SPM_EVOLVE_TASK'
 AND    parameter_name = 'ACCEPT_PLANS';</code></pre>
 
-    <pre><code class="language-sql">-- Increase SQL client display length before reviewing a long report.
-SET LONG 100000</code></pre>
 
-    <pre><code class="language-sql">-- Review the last automatic evolve task report.
+    <pre data-objective="Review the last automatic evolve task report"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET LONG 100000
+SET LONGCHUNKSIZE 100000
+
 SELECT DBMS_SPM.REPORT_AUTO_EVOLVE_TASK(
          type    =&gt; 'TEXT',
          level   =&gt; 'TYPICAL',
@@ -299,10 +387,15 @@ FROM   dual;</code></pre>
       Use report-only evolution first when a DBA needs to review the measured comparison before approving a plan. The report shows what would be accepted, but the baseline is not changed.
     </p>
 
-    <pre><code class="language-sql">-- Set SQL client display length for the evolution report.
-SET LONG 100000</code></pre>
+    <pre data-objective="Report-only evolution: verify a candidate plan but do not accept it"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET LONG 100000
+SET LONGCHUNKSIZE 100000
+COLUMN sql_handle FORMAT A32
+COLUMN plan_name FORMAT A32
 
-    <pre><code class="language-sql">-- Report-only evolution: verify a candidate plan but do not accept it.
 SELECT DBMS_SPM.EVOLVE_SQL_PLAN_BASELINE(
          sql_handle =&gt; '&lt;sql_handle&gt;',
          plan_name  =&gt; '&lt;plan_name&gt;',
@@ -316,7 +409,15 @@ FROM   dual;</code></pre>
       After reviewing the report, approve only the verified candidate. This changes the candidate plan from unaccepted to accepted when the verification qualifies.
     </p>
 
-    <pre><code class="language-sql">-- Approve after DBA review: verify and accept the better plan.
+    <pre data-objective="Approve after DBA review: verify and accept the better plan"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET LONG 100000
+SET LONGCHUNKSIZE 100000
+COLUMN sql_handle FORMAT A32
+COLUMN plan_name FORMAT A32
+
 SELECT DBMS_SPM.EVOLVE_SQL_PLAN_BASELINE(
          sql_handle =&gt; '&lt;sql_handle&gt;',
          plan_name  =&gt; '&lt;plan_name&gt;',
@@ -330,7 +431,12 @@ FROM   dual;</code></pre>
       When the known-good plan is already in the cursor cache, load it into a SQL plan baseline. Keep it non-fixed unless you have a clear regression-control reason to make it fixed.
     </p>
 
-    <pre><code class="language-sql">-- Load a known-good plan from the cursor cache.
+    <pre data-objective="Load a known-good plan from the cursor cache"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET SERVEROUTPUT ON
+
 DECLARE
   l_loaded PLS_INTEGER;
 BEGIN
@@ -349,7 +455,12 @@ END;
       Use plan attributes for final control. Mark a plan fixed only for a targeted stability requirement. Disable a plan when you want to preserve the record but prevent optimizer use.
     </p>
 
-    <pre><code class="language-sql">-- Make a specific accepted plan fixed.
+    <pre data-objective="Make a specific accepted plan fixed"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET SERVEROUTPUT ON
+
 DECLARE
   l_changed PLS_INTEGER;
 BEGIN
@@ -364,7 +475,12 @@ BEGIN
 END;
 /</code></pre>
 
-    <pre><code class="language-sql">-- Disable a baseline plan without dropping it.
+    <pre data-objective="Disable a baseline plan without dropping it"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET SERVEROUTPUT ON
+
 DECLARE
   l_changed PLS_INTEGER;
 BEGIN
@@ -388,7 +504,11 @@ END;
       Use actual execution plans when validating SQL. <code>EXPLAIN PLAN</code> shows an estimated plan; <code>DBMS_XPLAN.DISPLAY_CURSOR</code> shows the plan that actually ran.
     </p>
 
-    <pre><code class="language-sql">-- Create a compact test table with repeatable data distribution.
+    <pre data-objective="Create a compact test table with repeatable data distribution"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 CREATE TABLE perf_orders AS
 SELECT level AS order_id,
        MOD(level, 1000) AS customer_id,
@@ -397,7 +517,12 @@ SELECT level AS order_id,
 FROM   dual
 CONNECT BY level &lt;= 100000;</code></pre>
 
-    <pre><code class="language-sql">-- Gather optimizer statistics for the test table.
+    <pre data-objective="Gather optimizer statistics for the test table"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET SERVEROUTPUT ON
+
 BEGIN
   DBMS_STATS.GATHER_TABLE_STATS(
     ownname          =&gt; USER,
@@ -409,13 +534,24 @@ BEGIN
 END;
 /</code></pre>
 
-    <pre><code class="language-sql">-- Run the query with row-source statistics.
+    <pre data-objective="Run the query with row-source statistics"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 SELECT /*+ gather_plan_statistics */
        COUNT(*) AS order_count
 FROM   perf_orders
 WHERE  customer_id = 42;</code></pre>
 
-    <pre><code class="language-sql">-- Review estimated rows versus actual rows.
+    <pre data-objective="Review estimated rows versus actual rows"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET LONG 100000
+SET LONGCHUNKSIZE 100000
+COLUMN sql_id FORMAT A15
+
 SELECT *
 FROM   TABLE(DBMS_XPLAN.DISPLAY_CURSOR(
          sql_id =&gt; NULL,
@@ -427,7 +563,13 @@ FROM   TABLE(DBMS_XPLAN.DISPLAY_CURSOR(
       To find SQL that deserves attention, start with elapsed time, CPU time, buffer gets, and disk reads.
     </p>
 
-    <pre><code class="language-sql">-- Top SQL by elapsed time in the shared SQL area.
+    <pre data-objective="Top SQL by elapsed time in the shared SQL area"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN sql_id FORMAT A15
+COLUMN sql_text FORMAT A80
+
 SELECT sql_id,
        executions,
        ROUND(elapsed_time / 1e6, 1) AS total_elapsed_sec,
@@ -459,6 +601,7 @@ FETCH FIRST 20 ROWS ONLY;</code></pre>
 
   <div class="pager" aria-label="Previous and next">
     <a href="../index.html">Back to guide index</a>
+    <a href="../../index.html">Series home</a>
     <a href="02-automatic-indexing.html">Next: Automatic Indexing</a>
   </div>
 </div>
