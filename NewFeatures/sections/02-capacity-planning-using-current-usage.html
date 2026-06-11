@@ -7,22 +7,27 @@
   <link rel="stylesheet" href="../assets/blog.css">
 </head>
 <body>
-<div class="page">
-  <div class="site-header">
-    <div class="eyebrow">Oracle Autonomous Database New Features and AI Adoption Guide</div>
+<a class="skip-link" href="#main">Skip to content</a>
+<main class="page" id="main">
+  <header class="site-header">
+    <div class="eyebrow">Technical Blog - 2026/06 / Oracle Autonomous Database New Features and AI Adoption Guide</div>
     <h1>Capacity Planning Using Current Usage</h1>
     <p class="summary">
       Capacity planning estimates future CPU, storage, and workload requirements from observed usage. Use database views for local detail, OCI Monitoring for service-level metrics, OCI alarms for thresholds, and Operations Insights for fleet-level trend and forecast analysis.
     </p>
-  </div>
+  </header>
 
-  <div class="nav-row" aria-label="Section navigation">
+  <nav class="nav-row" aria-label="Section navigation">
     <a href="../index.html">Guide index</a>
+    <a href="../../index.html">Series home</a>
+    <a href="../../index.html#documentation">Series documentation</a>
+    <a href="../../index.html#glossary">Series glossary</a>
+    <a href="../../performance-optimization-guide/index.html">Related: performance guide</a>
     <a href="01-autonomous-database-26ai-new-features.html">Previous: 23ai and 26ai New Features</a>
     <a href="03-autonomous-database-mcp-server.html">Next: Autonomous AI Database MCP Server</a>
-  </div>
+  </nav>
 
-  <div>
+  <article class="article-content">
     <h2>What it is</h2>
     <p>
       Capacity planning is the process of translating current usage into future resource requirements. For Autonomous Database, the useful inputs are CPU utilization, average active sessions, queued statements, execution rate, transaction rate, physical I/O, storage used, storage growth, and application concurrency.
@@ -141,12 +146,24 @@
       Capacity planning is not a feature switch. Check whether you already collect snapshots, then review current storage and workload pressure.
     </p>
 
-    <pre><code class="language-sql">-- Check whether a local capacity snapshot table exists.
+    <pre data-objective="Check whether a local capacity snapshot table exists"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN table_name FORMAT A32
+
 SELECT table_name
 FROM   user_tables
 WHERE  table_name = 'CAPACITY_USAGE_SNAPSHOT';</code></pre>
 
-    <pre><code class="language-sql">-- Check whether a scheduled snapshot job exists.
+    <pre data-objective="Check whether a scheduled snapshot job exists"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN enabled FORMAT A8
+COLUMN job_name FORMAT A34
+COLUMN state FORMAT A16
+
 SELECT job_name,
        enabled,
        state,
@@ -160,7 +177,12 @@ WHERE  job_name = 'CAPACITY_USAGE_SNAPSHOT_JOB';</code></pre>
       Review current database storage, top segments, and top SQL. These checks help distinguish resource growth from individual SQL problems.
     </p>
 
-    <pre><code class="language-sql">-- Current storage usage by schema.
+    <pre data-objective="Current storage usage by schema"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN owner FORMAT A24
+
 SELECT owner,
        ROUND(SUM(bytes) / POWER(1024, 3), 2) AS used_gb
 FROM   dba_segments
@@ -168,7 +190,14 @@ GROUP  BY owner
 ORDER  BY used_gb DESC
 FETCH FIRST 20 ROWS ONLY;</code></pre>
 
-    <pre><code class="language-sql">-- Largest segments.
+    <pre data-objective="Largest segments"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN owner FORMAT A24
+COLUMN segment_name FORMAT A36
+COLUMN segment_type FORMAT A18
+
 SELECT owner,
        segment_name,
        segment_type,
@@ -177,7 +206,13 @@ FROM   dba_segments
 ORDER  BY bytes DESC
 FETCH FIRST 30 ROWS ONLY;</code></pre>
 
-    <pre><code class="language-sql">-- Current workload indicators.
+    <pre data-objective="Current workload indicators"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN metric_name FORMAT A42
+COLUMN metric_unit FORMAT A28
+
 SELECT metric_name, value, metric_unit
 FROM   v$sysmetric
 WHERE  metric_name IN (
@@ -188,7 +223,13 @@ WHERE  metric_name IN (
 )
 ORDER  BY metric_name;</code></pre>
 
-    <pre><code class="language-sql">-- Top SQL by total elapsed time.
+    <pre data-objective="Top SQL by total elapsed time"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN sql_id FORMAT A15
+COLUMN sql_text FORMAT A80
+
 SELECT sql_id,
        executions,
        ROUND(elapsed_time / 1e6, 1) AS total_elapsed_sec,
@@ -248,7 +289,11 @@ FETCH FIRST 20 ROWS ONLY;</code></pre>
       For local trend analysis, create a lightweight snapshot table and schedule periodic captures. Hourly snapshots are usually more useful than one daily sample because they show workload shape across business hours and batch windows.
     </p>
 
-    <pre><code class="language-sql">-- Create a local capacity snapshot table.
+    <pre data-objective="Create a local capacity snapshot table"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 CREATE TABLE capacity_usage_snapshot (
   sample_time          TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP NOT NULL,
   cpu_util_pct         NUMBER,
@@ -258,7 +303,11 @@ CREATE TABLE capacity_usage_snapshot (
   segment_used_gb      NUMBER
 );</code></pre>
 
-    <pre><code class="language-sql">-- Insert one snapshot manually.
+    <pre data-objective="Insert one snapshot manually"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 INSERT INTO capacity_usage_snapshot (
   cpu_util_pct,
   avg_active_sessions,
@@ -289,14 +338,24 @@ SELECT MAX(CASE WHEN metric_name = 'Host CPU Utilization (%)' THEN value END),
 FROM   m
 CROSS  JOIN s;</code></pre>
 
-    <pre><code class="language-sql">-- Commit the manual capacity snapshot.
+    <pre data-objective="Commit the manual capacity snapshot"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 COMMIT;</code></pre>
 
     <p>
       Schedule the same capture hourly. In production, choose a retention policy and purge old local snapshots if you keep this table long term.
     </p>
 
-    <pre><code class="language-sql">BEGIN
+    <pre><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET SERVEROUTPUT ON
+
+BEGIN
   DBMS_SCHEDULER.CREATE_JOB(
     job_name        =&gt; 'CAPACITY_USAGE_SNAPSHOT_JOB',
     job_type        =&gt; 'PLSQL_BLOCK',
@@ -394,7 +453,13 @@ END;
       Use snapshots to estimate growth and calculate p95 usage. For a more complete view, compare these local results with OCI Monitoring metrics such as <code>CpuUtilization</code>, <code>StorageUsed</code>, <code>StorageUtilization</code>, <code>StorageMax</code>, <code>TransactionCount</code>, <code>UserCalls</code>, <code>PhysicalReadTotalBytes</code>, and <code>PhysicalWriteTotalBytes</code>.
     </p>
 
-    <pre><code class="language-sql">-- Estimate monthly storage growth from local snapshots.
+    <pre data-objective="Estimate monthly storage growth from local snapshots"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN first_sample FORMAT A24
+COLUMN last_sample FORMAT A24
+
 SELECT MIN(sample_time) AS first_sample,
        MAX(sample_time) AS last_sample,
        ROUND(MIN(segment_used_gb), 2) AS first_used_gb,
@@ -406,7 +471,12 @@ SELECT MIN(sample_time) AS first_sample,
        ) AS estimated_growth_gb_per_month
 FROM   capacity_usage_snapshot;</code></pre>
 
-    <pre><code class="language-sql">-- Daily trend with average and peak values.
+    <pre data-objective="Daily trend with average and peak values"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN sample_day FORMAT A14
+
 SELECT TRUNC(CAST(sample_time AS DATE)) AS sample_day,
        ROUND(AVG(cpu_util_pct), 2) AS avg_cpu_pct,
        ROUND(MAX(cpu_util_pct), 2) AS max_cpu_pct,
@@ -418,7 +488,11 @@ FROM   capacity_usage_snapshot
 GROUP  BY TRUNC(CAST(sample_time AS DATE))
 ORDER  BY sample_day;</code></pre>
 
-    <pre><code class="language-sql">-- p95 CPU and workload metrics from local snapshots.
+    <pre data-objective="p95 CPU and workload metrics from local snapshots"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 SELECT ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY cpu_util_pct), 2) AS p95_cpu_pct,
        ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY avg_active_sessions), 2) AS p95_aas,
        ROUND(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY executions_per_sec), 2) AS p95_execs_per_sec,
@@ -429,7 +503,11 @@ FROM   capacity_usage_snapshot;</code></pre>
       The following sizing example uses simple inputs. Replace the values with your measured p95 CPU, expected workload growth, target CPU headroom, current storage, and observed monthly growth.
     </p>
 
-    <pre><code class="language-sql">-- Simple sizing calculation for CPU and storage.
+    <pre data-objective="Simple sizing calculation for CPU and storage"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 WITH input AS (
   SELECT 8     AS current_ecpus,
          65    AS p95_cpu_pct,
@@ -451,50 +529,35 @@ FROM   input;</code></pre>
       Use OCI Metrics Explorer to validate the SQL-derived estimates with service metrics. These examples show the metric names and MQL-style expressions to build charts or alarms. Add a <code>RESOURCEID</code> dimension filter for the target Autonomous Database.
     </p>
 
-    <pre><code class="language-text">-- CPU pressure over time.
-CpuUtilization[5m].mean()</code></pre>
+    <pre data-objective="CPU pressure over time"><code class="language-text">CpuUtilization[5m].mean()</code></pre>
 
-    <pre><code class="language-text">-- Average active sessions.
-AverageActiveSessions[5m].mean()</code></pre>
+    <pre data-objective="Average active sessions"><code class="language-text">AverageActiveSessions[5m].mean()</code></pre>
 
-    <pre><code class="language-text">-- Running statements.
-RunningStatements[5m].mean()</code></pre>
+    <pre data-objective="Running statements"><code class="language-text">RunningStatements[5m].mean()</code></pre>
 
-    <pre><code class="language-text">-- Queued statements.
-QueuedStatements[5m].sum()</code></pre>
+    <pre data-objective="Queued statements"><code class="language-text">QueuedStatements[5m].sum()</code></pre>
 
-    <pre><code class="language-text">-- Storage currently used.
-StorageUsed[1h].max()</code></pre>
+    <pre data-objective="Storage currently used"><code class="language-text">StorageUsed[1h].max()</code></pre>
 
-    <pre><code class="language-text">-- Allocated storage.
-StorageAllocated[1h].max()</code></pre>
+    <pre data-objective="Allocated storage"><code class="language-text">StorageAllocated[1h].max()</code></pre>
 
-    <pre><code class="language-text">-- Maximum storage limit.
-StorageMax[1h].max()</code></pre>
+    <pre data-objective="Maximum storage limit"><code class="language-text">StorageMax[1h].max()</code></pre>
 
-    <pre><code class="language-text">-- Storage utilization percentage.
-StorageUtilization[1h].mean()</code></pre>
+    <pre data-objective="Storage utilization percentage"><code class="language-text">StorageUtilization[1h].mean()</code></pre>
 
-    <pre><code class="language-text">-- SQL execution volume.
-ExecuteCount[5m].sum()</code></pre>
+    <pre data-objective="SQL execution volume"><code class="language-text">ExecuteCount[5m].sum()</code></pre>
 
-    <pre><code class="language-text">-- User call volume.
-UserCalls[5m].sum()</code></pre>
+    <pre data-objective="User call volume"><code class="language-text">UserCalls[5m].sum()</code></pre>
 
-    <pre><code class="language-text">-- Transaction volume.
-TransactionCount[5m].sum()</code></pre>
+    <pre data-objective="Transaction volume"><code class="language-text">TransactionCount[5m].sum()</code></pre>
 
-    <pre><code class="language-text">-- IOPS trend.
-IOPS[5m].mean()</code></pre>
+    <pre data-objective="IOPS trend"><code class="language-text">IOPS[5m].mean()</code></pre>
 
-    <pre><code class="language-text">-- I/O throughput trend.
-IOThroughput[5m].mean()</code></pre>
+    <pre data-objective="I/O throughput trend"><code class="language-text">IOThroughput[5m].mean()</code></pre>
 
-    <pre><code class="language-text">-- Physical read volume.
-PhysicalReadTotalBytes[5m].sum()</code></pre>
+    <pre data-objective="Physical read volume"><code class="language-text">PhysicalReadTotalBytes[5m].sum()</code></pre>
 
-    <pre><code class="language-text">-- Physical write volume.
-PhysicalWriteTotalBytes[5m].sum()</code></pre>
+    <pre data-objective="Physical write volume"><code class="language-text">PhysicalWriteTotalBytes[5m].sum()</code></pre>
 
     <p>
       Use Monitoring alarms for operational thresholds and Operations Insights for planning forecasts. The following examples are starting points; tune thresholds to the workload and service-level objectives.
@@ -549,13 +612,13 @@ PhysicalWriteTotalBytes[5m].sum()</code></pre>
       <li>Operations Insights should identify top consumers, growth trends, and forecasted CPU or storage pressure for individual databases or fleets.</li>
       <li>Auto scaling decisions should be based on observed utilization, forecast horizon, workload criticality, and billing impact.</li>
     </ul>
-  </div>
+  </article>
 
-  <div class="pager" aria-label="Previous and next">
+  <nav class="pager" aria-label="Previous and next">
     <a href="01-autonomous-database-26ai-new-features.html">Previous: 23ai and 26ai New Features</a>
     <a href="03-autonomous-database-mcp-server.html">Next: Autonomous AI Database MCP Server</a>
-  </div>
-</div>
+  </nav>
+</main>
 <script src="../assets/copy-code.js"></script>
 </body>
 </html>

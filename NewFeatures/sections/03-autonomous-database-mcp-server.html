@@ -7,22 +7,27 @@
   <link rel="stylesheet" href="../assets/blog.css">
 </head>
 <body>
-<div class="page">
-  <div class="site-header">
-    <div class="eyebrow">Oracle Autonomous Database New Features and AI Adoption Guide</div>
+<a class="skip-link" href="#main">Skip to content</a>
+<main class="page" id="main">
+  <header class="site-header">
+    <div class="eyebrow">Technical Blog - 2026/06 / Oracle Autonomous Database New Features and AI Adoption Guide</div>
     <h1>Autonomous AI Database MCP Server</h1>
     <p class="summary">
       Oracle Autonomous AI Database MCP Server is a managed, per-database MCP endpoint that lets MCP-compatible AI clients call approved Select AI Agent tools in Autonomous AI Database. This guide explains how to enable the endpoint, create a controlled tool, configure clients, test access, and troubleshoot common setup issues.
     </p>
-  </div>
+  </header>
 
-  <div class="nav-row" aria-label="Section navigation">
+  <nav class="nav-row" aria-label="Section navigation">
     <a href="../index.html">Guide index</a>
+    <a href="../../index.html">Series home</a>
+    <a href="../../index.html#documentation">Series documentation</a>
+    <a href="../../index.html#glossary">Series glossary</a>
+    <a href="../../performance-optimization-guide/index.html">Related: performance guide</a>
     <a href="02-capacity-planning-using-current-usage.html">Previous: Capacity Planning</a>
     <a href="04-ask-oracle-chatbot-select-ai.html">Next: Ask Oracle Chatbot</a>
-  </div>
+  </nav>
 
-  <div>
+  <article class="article-content">
     <h2>What it is</h2>
     <p>
       Autonomous AI Database MCP Server is Oracle's managed Model Context Protocol server for Autonomous AI Database. It removes the need to deploy a customer-managed MCP server and exposes a remote MCP endpoint for each enabled database. AI clients connect over streamable HTTP with Server-Sent Events and authenticate with OAuth 2.1 or bearer token-based authentication.
@@ -145,12 +150,23 @@
       Use a database check to confirm version and user context.
     </p>
 
-    <pre><code class="language-sql">-- Confirm database version.
+    <pre data-objective="Confirm database version"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN banner_full FORMAT A90
+
 SELECT banner_full
 FROM   v$version
 WHERE  banner_full LIKE 'Oracle Database%';</code></pre>
 
-    <pre><code class="language-sql">-- Confirm current schema and session user.
+    <pre data-objective="Confirm current schema and session user"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN current_schema FORMAT A30
+COLUMN session_user FORMAT A30
+
 SELECT SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA') AS current_schema,
        SYS_CONTEXT('USERENV', 'SESSION_USER') AS session_user
 FROM   dual;</code></pre>
@@ -159,7 +175,15 @@ FROM   dual;</code></pre>
       If tools already exist, review them before client setup.
     </p>
 
-    <pre><code class="language-sql">SELECT tool_name,
+    <pre><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN status FORMAT A18
+COLUMN tool_name FORMAT A36
+COLUMN description FORMAT A70
+
+SELECT tool_name,
        description,
        status
 FROM   user_cloud_ai_agent_tools
@@ -209,19 +233,39 @@ Tag value:     {"name":"mcp_server","enable":true}</code></pre>
       Use a dedicated schema for MCP login and tool registration. For stronger separation, place the PL/SQL implementation in an application schema and expose only the required routines to the MCP schema.
     </p>
 
-    <pre><code class="language-sql">-- Create a dedicated MCP database user.
+    <pre data-objective="Create a dedicated MCP database user"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 CREATE USER mcp_user IDENTIFIED BY "replace-with-strong-password";</code></pre>
 
-    <pre><code class="language-sql">-- Allow the MCP user to connect.
+    <pre data-objective="Allow the MCP user to connect"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 GRANT CREATE SESSION TO mcp_user;</code></pre>
 
-    <pre><code class="language-sql">-- Allow the MCP user to create approved PL/SQL tools.
+    <pre data-objective="Allow the MCP user to create approved PL/SQL tools"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 GRANT CREATE PROCEDURE TO mcp_user;</code></pre>
 
-    <pre><code class="language-sql">-- Optional: grant access only to an approved application table.
+    <pre data-objective="Optional: grant access only to an approved application table"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 GRANT SELECT ON app.orders TO mcp_user;</code></pre>
 
-    <pre><code class="language-sql">-- Optional: grant access only to another approved application table.
+    <pre data-objective="Optional: grant access only to another approved application table"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 GRANT SELECT ON app.customers TO mcp_user;</code></pre>
 
     <h3>Step 5: Create a small read-only test tool</h3>
@@ -229,7 +273,12 @@ GRANT SELECT ON app.customers TO mcp_user;</code></pre>
       Create a narrow function that returns JSON. The tool description should make clear that tool output is data, not instructions for the model to execute.
     </p>
 
-    <pre><code class="language-sql">CREATE OR REPLACE FUNCTION mcp_database_status
+    <pre><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
+CREATE OR REPLACE FUNCTION mcp_database_status
   RETURN CLOB
 AUTHID CURRENT_USER
 AS
@@ -249,7 +298,12 @@ BEGIN
 END;
 /</code></pre>
 
-    <pre><code class="language-sql">-- Register the read-only database status function as an MCP tool.
+    <pre data-objective="Register the read-only database status function as an MCP tool"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET SERVEROUTPUT ON
+
 BEGIN
   DBMS_CLOUD_AI_AGENT.CREATE_TOOL(
     tool_name  =&gt; 'MCP_DATABASE_STATUS',
@@ -266,7 +320,15 @@ END;
       Confirm the tool is registered and enabled.
     </p>
 
-    <pre><code class="language-sql">SELECT tool_name,
+    <pre><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN status FORMAT A18
+COLUMN tool_name FORMAT A36
+COLUMN description FORMAT A70
+
+SELECT tool_name,
        description,
        status
 FROM   user_cloud_ai_agent_tools
@@ -379,11 +441,22 @@ WHERE  tool_name = 'MCP_DATABASE_STATUS';</code></pre>
       Confirm tool call readiness from SQL before testing through the client.
     </p>
 
-    <pre><code class="language-sql">-- Test the registered status function from SQL.
+    <pre data-objective="Test the registered status function from SQL"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN status FORMAT A18
+
 SELECT mcp_database_status
 FROM   dual;</code></pre>
 
-    <pre><code class="language-sql">-- Confirm registered tool status before client testing.
+    <pre data-objective="Confirm registered tool status before client testing"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN status FORMAT A18
+COLUMN tool_name FORMAT A36
+
 SELECT tool_name,
        status
 FROM   user_cloud_ai_agent_tools
@@ -483,13 +556,13 @@ ORDER  BY tool_name;</code></pre>
         </tr>
       </tbody>
     </table>
-  </div>
+  </article>
 
-  <div class="pager" aria-label="Previous and next">
+  <nav class="pager" aria-label="Previous and next">
     <a href="02-capacity-planning-using-current-usage.html">Previous: Capacity Planning</a>
     <a href="04-ask-oracle-chatbot-select-ai.html">Next: Ask Oracle Chatbot</a>
-  </div>
-</div>
+  </nav>
+</main>
 <script src="../assets/copy-code.js"></script>
 </body>
 </html>

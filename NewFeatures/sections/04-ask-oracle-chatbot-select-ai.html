@@ -7,22 +7,27 @@
   <link rel="stylesheet" href="../assets/blog.css">
 </head>
 <body>
-<div class="page">
-  <div class="site-header">
-    <div class="eyebrow">Oracle Autonomous Database New Features and AI Adoption Guide</div>
+<a class="skip-link" href="#main">Skip to content</a>
+<main class="page" id="main">
+  <header class="site-header">
+    <div class="eyebrow">Technical Blog - 2026/06 / Oracle Autonomous Database New Features and AI Adoption Guide</div>
     <h1>Ask Oracle Chatbot Powered by Select AI</h1>
     <p class="summary">
       Ask Oracle is a sample Oracle APEX chatbot application that uses Autonomous AI Database Select AI profiles and Select AI Agents to provide a ready-to-use interface for LLM chat, natural language to SQL, retrieval augmented generation, charts, and task-oriented agent workflows.
     </p>
-  </div>
+  </header>
 
-  <div class="nav-row" aria-label="Section navigation">
+  <nav class="nav-row" aria-label="Section navigation">
     <a href="../index.html">Guide index</a>
+    <a href="../../index.html">Series home</a>
+    <a href="../../index.html#documentation">Series documentation</a>
+    <a href="../../index.html#glossary">Series glossary</a>
+    <a href="../../performance-optimization-guide/index.html">Related: performance guide</a>
     <a href="03-autonomous-database-mcp-server.html">Previous: Autonomous AI Database MCP Server</a>
     <a href="05-references.html">Next: References</a>
-  </div>
+  </nav>
 
-  <div>
+  <article class="article-content">
     <h2>What it is</h2>
     <p>
       Ask Oracle is a sample APEX application for Autonomous AI Database that turns Select AI capabilities into a chatbot user experience. It uses configured AI profiles and Select AI Agent definitions so users can ask questions, inspect generated SQL, create charts from result sets, use RAG-backed profiles, and work with agent teams from a browser-based interface.
@@ -104,24 +109,48 @@
       Before importing the sample app, confirm that the Autonomous AI Database environment has APEX, Select AI prerequisites, at least one AI profile, and optional agent or RAG configuration.
     </p>
 
-    <pre><code class="language-sql">-- Confirm database identity.
+    <pre data-objective="Confirm database identity"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN current_schema FORMAT A30
+COLUMN database_name FORMAT A30
+
 SELECT SYS_CONTEXT('USERENV', 'DB_NAME') AS database_name,
        SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA') AS current_schema
 FROM   dual;</code></pre>
 
-    <pre><code class="language-sql">-- Confirm database version.
+    <pre data-objective="Confirm database version"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN banner_full FORMAT A90
+
 SELECT banner_full
 FROM   v$version
 WHERE  banner_full LIKE 'Oracle Database%';</code></pre>
 
-    <pre><code class="language-sql">-- Review available AI profiles for the current user.
+    <pre data-objective="Review available AI profiles for the current user"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN status FORMAT A18
+COLUMN profile_name FORMAT A32
+COLUMN description FORMAT A70
+
 SELECT profile_name,
        status,
        description
 FROM   user_cloud_ai_profiles
 ORDER  BY profile_name;</code></pre>
 
-    <pre><code class="language-sql">-- Review available Select AI Agent tools or teams if configured.
+    <pre data-objective="Review available Select AI Agent tools or teams if configured"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN status FORMAT A18
+COLUMN tool_name FORMAT A36
+
 SELECT tool_name,
        status
 FROM   user_cloud_ai_agent_tools
@@ -173,7 +202,12 @@ ORDER  BY tool_name;</code></pre>
       Configure Select AI prerequisites and create at least one AI profile. Scope profiles to the schemas and objects that the chatbot should use.
     </p>
 
-    <pre><code class="language-sql">-- Example pattern only. Use the provider and attributes approved for your environment.
+    <pre data-objective="Example pattern only. Use the provider and attributes approved for your environment"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET SERVEROUTPUT ON
+
 BEGIN
   DBMS_CLOUD_AI.CREATE_PROFILE(
     profile_name =&gt; 'ASK_ORACLE_NL2SQL',
@@ -189,7 +223,12 @@ BEGIN
 END;
 /</code></pre>
 
-    <pre><code class="language-sql">-- Set the active Select AI profile for the session.
+    <pre data-objective="Set the active Select AI profile for the session"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET SERVEROUTPUT ON
+
 BEGIN
   DBMS_CLOUD_AI.SET_PROFILE('ASK_ORACLE_NL2SQL');
 END;
@@ -200,14 +239,28 @@ END;
       If you want RAG, create or select an AI profile with a vector index. If you want workflow automation, create or select a Select AI Agent or agent team with approved tools.
     </p>
 
-    <pre><code class="language-sql">-- Review profile metadata before assigning it as the Ask Oracle default.
+    <pre data-objective="Review profile metadata before assigning it as the Ask Oracle default"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN status FORMAT A18
+COLUMN profile_name FORMAT A32
+COLUMN description FORMAT A70
+
 SELECT profile_name,
        status,
        description
 FROM   user_cloud_ai_profiles
 ORDER  BY profile_name;</code></pre>
 
-    <pre><code class="language-sql">-- Review agent tool metadata before exposing an agent team through the app.
+    <pre data-objective="Review agent tool metadata before exposing an agent team through the app"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+COLUMN status FORMAT A18
+COLUMN tool_name FORMAT A36
+COLUMN description FORMAT A70
+
 SELECT tool_name,
        description,
        status
@@ -311,7 +364,11 @@ ORDER  BY tool_name;</code></pre>
       Validate the generated SQL directly when testing NL2SQL. This helps confirm that the profile is using the intended tables, predicates, and aggregation logic.
     </p>
 
-    <pre><code class="language-sql">-- Use the SQL displayed by Ask Oracle, then validate plan and row counts.
+    <pre data-objective="Use the SQL displayed by Ask Oracle, then validate plan and row counts"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+
 SELECT /*+ gather_plan_statistics */
        order_month,
        order_count
@@ -325,7 +382,14 @@ FROM   (
 )
 ORDER  BY order_month;</code></pre>
 
-    <pre><code class="language-sql">-- Display the actual execution plan for the generated SQL.
+    <pre data-objective="Display the actual execution plan for the generated SQL"><code class="language-sql">SET LINESIZE 220
+SET PAGESIZE 100
+SET TRIMSPOOL ON
+SET TAB OFF
+SET LONG 100000
+SET LONGCHUNKSIZE 100000
+COLUMN sql_id FORMAT A15
+
 SELECT *
 FROM   TABLE(DBMS_XPLAN.DISPLAY_CURSOR(
          sql_id =&gt; NULL,
@@ -376,13 +440,13 @@ FROM   TABLE(DBMS_XPLAN.DISPLAY_CURSOR(
         </tr>
       </tbody>
     </table>
-  </div>
+  </article>
 
-  <div class="pager" aria-label="Previous and next">
+  <nav class="pager" aria-label="Previous and next">
     <a href="03-autonomous-database-mcp-server.html">Previous: Autonomous AI Database MCP Server</a>
     <a href="05-references.html">Next: References</a>
-  </div>
-</div>
+  </nav>
+</main>
 <script src="../assets/copy-code.js"></script>
 </body>
 </html>
