@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Oracle Autonomous Database Technical Blog Series</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #faf8f7;
+      --surface: #ffffff;
+      --surface-soft: #f7f4f2;
+      --text: #1f1b1a;
+      --muted: #57534e;
+      --subtle: #78716c;
+      --line: #e7e5e4;
+      --accent: #c74634;
+      --accent-strong: #5f2b24;
+      --gold: #b07113;
+      --green: #22775f;
+      --blue: #2f5f96;
+      --shadow: 0 18px 50px rgba(31, 27, 26, 0.08);
+      --radius: 8px;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background: var(--bg);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+      text-rendering: optimizeLegibility;
+    }
+
+    a {
+      color: var(--accent-strong);
+      text-decoration-color: rgba(199, 70, 52, 0.42);
+      text-underline-offset: 4px;
+    }
+
+    a:hover {
+      color: var(--accent);
+    }
+
+    a:focus-visible {
+      outline: 3px solid rgba(199, 70, 52, 0.35);
+      outline-offset: 3px;
+    }
+
+    .skip-link {
+      position: fixed;
+      top: -56px;
+      left: 18px;
+      z-index: 1000;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      background: var(--text);
+      color: #ffffff;
+      font-weight: 800;
+    }
+
+    .skip-link:focus {
+      top: 18px;
+    }
+
+    .topbar {
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(14px);
+    }
+
+    .topbar-inner {
+      display: flex;
+      width: min(1280px, calc(100% - 2rem));
+      min-height: 68px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin: 0 auto;
+    }
+
+    .brand {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #ffffff;
+      font-size: 0.75rem;
+      font-weight: 900;
+    }
+
+    .brand-title,
+    .brand-subtitle {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .brand-title {
+      color: var(--text);
+      font-weight: 850;
+    }
+
+    .brand-subtitle {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .top-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .top-actions a,
+    .source-link {
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--accent-strong);
+      font-size: 0.9rem;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .hero {
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(135deg, rgba(199, 70, 52, 0.13), transparent 44%),
+        linear-gradient(180deg, #ffffff 0%, var(--surface-soft) 100%);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 2rem;
+      width: min(1280px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 56px 0 52px;
+      align-items: end;
+    }
+
+    .eyebrow,
+    .visual-caption,
+    .meta-pill {
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 900;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3 {
+      color: var(--text);
+      line-height: 1.14;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      max-width: 58rem;
+      margin: 14px 0 0;
+      font-size: clamp(2.35rem, 5vw, 4.15rem);
+    }
+
+    .subtitle {
+      max-width: 48rem;
+      margin: 20px 0 0;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .meta-pill {
+      padding: 7px 10px;
+      border: 1px solid rgba(199, 70, 52, 0.25);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--accent-strong);
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .hero-visual,
+    .content-card,
+    .series-card,
+    .source-panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-visual {
+      padding: 22px;
+    }
+
+    .hero-highlights {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .highlight {
+      padding: 12px 0 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .highlight strong {
+      display: block;
+      color: var(--text);
+    }
+
+    .highlight span {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .page-grid {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 2rem;
+      width: min(1280px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 42px 0 70px;
+    }
+
+    .toc {
+      position: sticky;
+      top: 16px;
+      align-self: start;
+      max-height: calc(100vh - 2rem);
+      overflow: auto;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .toc h2 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+    }
+
+    .toc ol {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .toc a {
+      color: var(--muted);
+      font-size: 0.95rem;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .article-section {
+      padding: 0 0 38px;
+      scroll-margin-top: 6rem;
+    }
+
+    .article-section + .article-section {
+      padding-top: 38px;
+      border-top: 1px solid var(--line);
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      font-size: clamp(1.42rem, 1.9vw, 1.9rem);
+    }
+
+    .content-card,
+    .source-panel {
+      padding: 24px;
+    }
+
+    .series-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 22px;
+    }
+
+    .series-card {
+      display: flex;
+      min-height: 260px;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24px;
+      color: inherit;
+      text-decoration: none;
+      transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    }
+
+    .series-card::before {
+      content: "";
+      width: 48px;
+      height: 8px;
+      margin-bottom: 24px;
+      border-radius: 2px;
+      background: var(--accent);
+    }
+
+    .series-card:nth-child(2)::before {
+      background: var(--blue);
+    }
+
+    .series-card:hover {
+      border-color: rgba(199, 70, 52, 0.62);
+      box-shadow: 0 24px 64px rgba(31, 27, 26, 0.14);
+      transform: translateY(-3px);
+    }
+
+    .series-card h3 {
+      margin: 0 0 12px;
+      font-size: 1.28rem;
+    }
+
+    .series-card p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .source-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .source-panel ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .source-panel li + li {
+      margin-top: 6px;
+    }
+
+    .glossary-block + .glossary-block {
+      margin-top: 28px;
+    }
+
+    .glossary-block h3 {
+      margin: 0 0 14px;
+      font-size: 1.12rem;
+    }
+
+    .glossary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+    }
+
+    .glossary-card {
+      display: flex;
+      min-height: 190px;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: inherit;
+      text-decoration: none;
+      box-shadow: 0 12px 30px rgba(31, 27, 26, 0.06);
+      transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    }
+
+    .glossary-card::before {
+      content: "";
+      width: 38px;
+      height: 7px;
+      margin-bottom: 18px;
+      border-radius: 2px;
+      background: var(--accent);
+    }
+
+    .glossary-card:nth-child(2n)::before {
+      background: var(--blue);
+    }
+
+    .glossary-card:nth-child(3n)::before {
+      background: var(--green);
+    }
+
+    .glossary-card:hover {
+      border-color: rgba(199, 70, 52, 0.62);
+      box-shadow: 0 20px 48px rgba(31, 27, 26, 0.12);
+      transform: translateY(-2px);
+    }
+
+    .glossary-card strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text);
+      font-size: 1rem;
+      line-height: 1.25;
+    }
+
+    .glossary-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    .glossary-card em {
+      display: block;
+      margin-top: 16px;
+      color: var(--accent-strong);
+      font-size: 0.82rem;
+      font-style: normal;
+      font-weight: 850;
+    }
+
+    .site-footer {
+      border-top: 1px solid var(--line);
+      background: #ffffff;
+    }
+
+    .site-footer-inner {
+      width: min(1280px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 24px 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 1040px) {
+      .hero-grid,
+      .page-grid,
+      .series-grid,
+      .glossary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .toc {
+        position: static;
+      }
+
+      .toc ol {
+        display: flex;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+
+      .toc a {
+        white-space: nowrap;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .topbar-inner {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 14px 0;
+      }
+
+      .top-actions {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      .hero-grid {
+        padding: 40px 0;
+      }
+    }
+  </style>
+</head>
+<body>
+<a class="skip-link" href="#article">Skip to content</a>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="index.html" aria-label="Oracle Autonomous Database blog series home">
+      <span class="brand-mark">ADB</span>
+      <span>
+        <span class="brand-title">Oracle Autonomous Database Technical Blog Series</span>
+        <span class="brand-subtitle">Performance, feature adoption, AI access, and operational planning</span>
+      </span>
+    </a>
+    <nav class="top-actions" aria-label="Series shortcuts">
+      <a href="performance-optimization-guide/index.html">Performance guide</a>
+      <a href="NewFeatures/index.html">New features guide</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero" id="top">
+  <div class="hero-grid">
+    <div class="hero-copy">
+      <div class="eyebrow">Technical blog series / Oracle Autonomous Database</div>
+      <h1>Oracle Autonomous Database Technical Blog Series</h1>
+      <p class="subtitle">
+        A linked set of practical Oracle Autonomous Database guides covering performance optimization, new feature adoption, capacity planning, managed MCP Server access, and Ask Oracle Select AI patterns.
+      </p>
+      <div class="hero-meta" aria-label="Series metadata">
+        <span class="meta-pill">Last refreshed 2026-06</span>
+      </div>
+    </div>
+    <aside class="hero-visual" aria-label="Latest guide coverage">
+      <div class="visual-caption">Latest guide coverage</div>
+      <div class="hero-highlights">
+        <div class="highlight">
+          <strong>Performance optimization</strong>
+          <span>Automatic tuning, indexing, partitioning, compression, validation, and references.</span>
+        </div>
+        <div class="highlight">
+          <strong>Feature adoption</strong>
+          <span>Oracle Database 23ai and Oracle AI Database 26ai planning and rollout notes.</span>
+        </div>
+        <div class="highlight">
+          <strong>AI access patterns</strong>
+          <span>Managed Autonomous AI Database MCP Server and Ask Oracle Select AI chatbot flows.</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<div class="page-grid">
+  <nav class="toc" aria-labelledby="toc-title">
+    <h2 id="toc-title">Contents</h2>
+    <ol>
+      <li><a href="#series">Series guides</a></li>
+      <li><a href="#documentation">Oracle official documentation</a></li>
+      <li><a href="#glossary">Glossary</a></li>
+    </ol>
+  </nav>
+
+  <main class="article" id="article">
+    <section class="article-section" id="series" aria-labelledby="series-title">
+      <h2 id="series-title">Series Guides</h2>
+      <div class="content-card">
+        <p>
+          Use this entry point as the main publication page for the blog series. Each guide remains self-contained, but the pages now link back here and across to the other guide so readers can move between performance, feature adoption, and AI enablement topics.
+        </p>
+        <div class="series-grid">
+          <a class="series-card" href="performance-optimization-guide/index.html">
+            <span>
+              <h3>Performance Optimization Guide</h3>
+              <p>Performance-focused guide covering Automatic Performance Tuning, Automatic Indexing, Automatic Partitioning, Compression, and performance references.</p>
+            </span>
+            <span class="card-actions">
+              <span class="source-link">Open guide</span>
+            </span>
+          </a>
+          <a class="series-card" href="NewFeatures/index.html">
+            <span>
+              <h3>New Features and AI Adoption Guide</h3>
+              <p>Feature adoption guide covering 23ai and 26ai features, capacity planning, Autonomous AI Database MCP Server, Ask Oracle, and references.</p>
+            </span>
+            <span class="card-actions">
+              <span class="source-link">Open guide</span>
+            </span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="article-section" id="documentation" aria-labelledby="documentation-title">
+      <h2 id="documentation-title">Oracle Official Documentation</h2>
+      <div class="source-grid">
+        <div class="source-panel">
+          <h3>Autonomous Database</h3>
+          <ul>
+            <li><a href="https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/">Oracle Autonomous AI Database Serverless Documentation</a></li>
+            <li><a href="https://docs.oracle.com/iaas/autonomous-database-serverless/doc/autonomous-key-features.html">Key Features of Oracle Autonomous AI Database</a></li>
+            <li><a href="https://docs.oracle.com/en-us/iaas/autonomous-database/doc/overview.html">What is Oracle Autonomous AI Database?</a></li>
+          </ul>
+        </div>
+        <div class="source-panel">
+          <h3>Performance Optimization</h3>
+          <ul>
+            <li><a href="https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/adbsb/manage-optimizer-stats.html">Manage Optimizer Statistics on Autonomous AI Database</a></li>
+            <li><a href="https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/adbsb/autonomous-auto-index.html">Manage Automatic Indexing on Autonomous AI Database</a></li>
+            <li><a href="https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/adbsb/mdw-managing-automatic-partitioning-autonomous-database.html">Manage Automatic Partitioning on Autonomous AI Database</a></li>
+            <li><a href="https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/autonomous-monitor-perf-hub.html">Monitor Autonomous Database with Performance Hub</a></li>
+          </ul>
+        </div>
+        <div class="source-panel">
+          <h3>AI, Capacity, and Integration</h3>
+          <ul>
+            <li><a href="https://docs.oracle.com/en/database/oracle/oracle-database/26/nfcoa/">Oracle AI Database New Features, Release 26ai</a></li>
+            <li><a href="https://docs.oracle.com/en/database/oracle/oracle-database/23/nfcoa/toc.htm">Oracle Database New Features, Release 23ai</a></li>
+            <li><a href="https://docs.oracle.com/en-us/iaas/operations-insights/doc/capacity-planning.html">OCI Operations Insights Capacity Planning</a></li>
+            <li><a href="https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/mcp-server.html">Autonomous AI Database MCP Server</a></li>
+            <li><a href="https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/adbsb/select-ai-get-started.html">Getting Started with Select AI</a></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="article-section" id="glossary" aria-labelledby="glossary-title">
+      <h2 id="glossary-title">Glossary</h2>
+      <div class="glossary-block">
+          <h3>AI and Application Features</h3>
+        <div class="glossary-grid">
+          <a class="glossary-card" href="https://docs.oracle.com/en/database/oracle/oracle-database/26/vecse/overview-ai-vector-search.html">
+            <span>
+              <strong>AI Vector Search</strong>
+              <span>Oracle Database capability for storing vectors and running similarity search for semantic retrieval patterns.</span>
+            </span>
+            <em>Oracle documentation</em>
+          </a>
+          <a class="glossary-card" href="https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/adbsb/select-ai-get-started.html">
+            <span>
+              <strong>Select AI</strong>
+              <span>Autonomous Database capability for natural language interaction with approved database content and AI profiles.</span>
+            </span>
+            <em>Oracle documentation</em>
+          </a>
+          <a class="glossary-card" href="https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/adbsb/select-ai-agent1.html">
+            <span>
+              <strong>Select AI Agent</strong>
+              <span>Agent workflow capability used to expose approved tools and actions through Autonomous AI Database.</span>
+            </span>
+            <em>Oracle documentation</em>
+          </a>
+          <a class="glossary-card" href="https://www.oracle.com/database/json-relational-duality/">
+            <span>
+              <strong>JSON Relational Duality</strong>
+              <span>Oracle Database feature that lets applications work with JSON documents backed by relational data.</span>
+            </span>
+            <em>Oracle documentation</em>
+          </a>
+          <a class="glossary-card" href="https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/adbsb/select-ai-get-started.html">
+            <span>
+              <strong>RAG</strong>
+              <span>Retrieval augmented generation pattern that retrieves governed enterprise context before generating an answer.</span>
+            </span>
+            <em>Oracle documentation</em>
+          </a>
+          <a class="glossary-card" href="https://blogs.oracle.com/machinelearning/try-the-new-ask-oracle-chatbot-powered-by-select-ai">
+            <span>
+              <strong>Ask Oracle</strong>
+              <span>Sample Oracle APEX chatbot application powered by Autonomous AI Database Select AI.</span>
+            </span>
+            <em>Oracle documentation</em>
+          </a>
+        </div>
+      </div>
+
+      <div class="glossary-block">
+        <h3>Database Performance</h3>
+        <div class="glossary-grid">
+          <a class="glossary-card" href="https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/adbsb/autonomous-auto-index.html">
+            <span>
+              <strong>Automatic Indexing</strong>
+              <span>Database-managed analysis and implementation of indexes based on workload evidence.</span>
+            </span>
+            <em>Oracle documentation</em>
+          </a>
+          <a class="glossary-card" href="https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/adbsb/mdw-managing-automatic-partitioning-autonomous-database.html">
+            <span>
+              <strong>Automatic Partitioning</strong>
+              <span>Managed recommendations and operations for partitioning large tables where partition pruning can improve access.</span>
+            </span>
+            <em>Oracle documentation</em>
+          </a>
+          <a class="glossary-card" href="https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/load-data-data-pump-table-compression.html">
+            <span>
+              <strong>Compression</strong>
+              <span>Table and storage techniques that reduce data footprint and can reduce scan I/O for suitable workloads.</span>
+            </span>
+            <em>Oracle documentation</em>
+          </a>
+          <a class="glossary-card" href="https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/adbsb/manage-optimizer-stats.html">
+            <span>
+              <strong>Optimizer Statistics</strong>
+              <span>Metadata about table, column, and index data distribution used by the optimizer to estimate execution costs.</span>
+            </span>
+            <em>Oracle documentation</em>
+          </a>
+          <a class="glossary-card" href="https://docs.oracle.com/en/database/oracle/oracle-database/26/tgsql/managing-sql-plan-baselines.html">
+            <span>
+              <strong>SQL Plan Management</strong>
+              <span>Controls and baselines used to reduce SQL execution plan regressions.</span>
+            </span>
+            <em>Oracle documentation</em>
+          </a>
+        </div>
+      </div>
+
+      <div class="glossary-block">
+          <h3>Operations and Integration</h3>
+        <div class="glossary-grid">
+          <a class="glossary-card" href="https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/mcp-server.html">
+            <span>
+              <strong>Autonomous AI Database MCP Server</strong>
+              <span>Oracle-managed Model Context Protocol endpoint for approved Autonomous AI Database tools.</span>
+            </span>
+            <em>Oracle documentation</em>
+          </a>
+          <a class="glossary-card" href="https://docs.oracle.com/en-us/iaas/operations-insights/doc/capacity-planning.html">
+            <span>
+              <strong>Capacity Planning</strong>
+              <span>Estimating future CPU, storage, and workload requirements from current usage and growth patterns.</span>
+            </span>
+            <em>Oracle documentation</em>
+          </a>
+          <a class="glossary-card" href="https://docs.oracle.com/en-us/iaas/operations-insights/doc/operations-insights.html">
+            <span>
+              <strong>OCI Operations Insights</strong>
+              <span>OCI service used for operational analysis and capacity planning across database resources.</span>
+            </span>
+            <em>Oracle documentation</em>
+          </a>
+          <a class="glossary-card" href="https://docs.oracle.com/en-us/iaas/autonomous-database-serverless/doc/appendix-autonomous-database-data-warehouse-workload.html">
+            <span>
+              <strong>Autonomous AI Lakehouse</strong>
+              <span>Autonomous Database pattern for querying and integrating database data with lakehouse data.</span>
+            </span>
+            <em>Oracle documentation</em>
+          </a>
+          <a class="glossary-card" href="https://docs.oracle.com/en/cloud/paas/autonomous-database/serverless/adbsb/whats-new-adwc.html">
+            <span>
+              <strong>External Table Cache</strong>
+              <span>A caching approach for improving repeated access to external table data where supported.</span>
+            </span>
+            <em>Oracle documentation</em>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer class="site-footer">
+  <div class="site-footer-inner">
+    This technical blog series is for educational and planning use. Validate commands, configuration, version behavior, and operational recommendations in a non-production environment before using them in production.
+  </div>
+</footer>
+</body>
+</html>
